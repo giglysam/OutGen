@@ -1,6 +1,7 @@
 export const GUEST_GENERATION_LIMIT = 5
 
-export const IMAGE_API = 'https://image-z.created.app/api/generate-image'
+/** Direct URL if you need it outside the browser client */
+export const IMAGE_API_PUBLIC = 'https://image-z.created.app/api/generate-image'
 export const CHAT_API = 'https://chat-z.created.app/api/chat'
 
 export const STORAGE_USER = 'outgen_user_v1'

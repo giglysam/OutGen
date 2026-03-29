@@ -11,6 +11,8 @@ export type OutGenContextValue = {
   userPrompt: string
   setUserPrompt: (v: string) => void
   generated: GeneratedViews
+  /** Merge partial previews (e.g. live front) without clearing other angles */
+  patchGenerated: (patch: Partial<GeneratedViews>) => void
   generating: boolean
   generateProgress: string | null
   guestUsed: number

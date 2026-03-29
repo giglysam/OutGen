@@ -3,6 +3,7 @@ import type { GeneratedViews, OutfitSelection, ToastMessage, UserSession, ViewAn
 import { buildFullPrompt, VIEW_ORDER } from '../lib/promptBuilder'
 import { generateImage, sendChatMessage } from '../lib/api'
 import { guestCanGenerate, getGuestGenerationCount, incrementGuestGenerationCount } from '../lib/guestTrials'
+import { mergeGeneratedViews, revokeGeneratedUrl } from '../lib/generatedImageUrl'
 import { clearSession, loadSession, mockSignIn, mockSignUp, saveSession } from '../lib/session'
 import type { PlanId } from '../lib/constants'
 import { OutGenContext, type OutGenContextValue } from './outgen-context'
@@ -55,6 +56,10 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
+  const patchGenerated = useCallback((patch: Partial<GeneratedViews>) => {
+    setGenerated((prev) => mergeGeneratedViews(prev, patch))
+  }, [])
+
   const ensureCanGenerate = useCallback((): boolean => {
     if (user) return true
     if (guestCanGenerate()) return true
@@ -67,7 +72,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     async (angle: ViewAngle, chargeGuest: boolean) => {
       const prompt = buildFullPrompt(selection, logoDescription, userPrompt, angle)
       const url = await generateImage(prompt)
-      setGenerated((prev) => ({ ...prev, [angle]: url }))
+      setGenerated((prev) => mergeGeneratedViews(prev, { [angle]: url }))
       if (chargeGuest && !user) {
         incrementGuestGenerationCount()
         refreshGuest()
@@ -187,6 +192,10 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(() => {
+    setGenerated((prev) => {
+      for (const u of Object.values(prev)) revokeGeneratedUrl(u)
+      return {}
+    })
     clearSession()
     setUser(null)
     pushToast('info', 'Déconnexion.')
@@ -213,6 +222,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       userPrompt,
       setUserPrompt,
       generated,
+      patchGenerated,
       generating,
       generateProgress,
       guestUsed,
@@ -241,6 +251,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       logoDescription,
       userPrompt,
       generated,
+      patchGenerated,
       generating,
       generateProgress,
       guestUsed,
