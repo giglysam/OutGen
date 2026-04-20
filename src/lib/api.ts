@@ -1,4 +1,4 @@
-import { CHAT_API } from './constants'
+import { CHAT_API, IMAGE_PROMPT_QUALITY_SUFFIX } from './constants'
 import { resolveImageApiUrl } from './imageApiUrl'
 
 /** Accept URLs, data URLs, blob URLs, or raw base64 payloads from JSON fields */
@@ -60,9 +60,19 @@ function extractImageReference(data: unknown): string {
  * Same intent as Python:
  * `requests.post(..., json={"prompt": "..."})` then read URL / base64 / or binary image body.
  */
+function withQualitySuffix(prompt: string): string {
+  const t = prompt.trim()
+  if (!t) return t
+  const q = IMAGE_PROMPT_QUALITY_SUFFIX.trim()
+  if (t.toLowerCase().includes(q.slice(0, 24).toLowerCase())) return t
+  return `${t}, ${q}`
+}
+
 export async function generateImage(prompt: string): Promise<string> {
   const trimmed = typeof prompt === 'string' ? prompt.trim() : ''
   if (!trimmed) throw new Error('Le prompt ne peut pas être vide.')
+
+  const positivePrompt = withQualitySuffix(trimmed)
 
   const endpoint = resolveImageApiUrl()
   const response = await fetch(endpoint, {
@@ -71,7 +81,7 @@ export async function generateImage(prompt: string): Promise<string> {
       'Content-Type': 'application/json',
       Accept: 'application/json, image/*, */*',
     },
-    body: JSON.stringify({ prompt: trimmed }),
+    body: JSON.stringify({ prompt: positivePrompt, positivePrompt }),
   })
 
   const ct = (response.headers.get('content-type') || '').toLowerCase()
@@ -129,4 +139,35 @@ export async function sendChatMessage(prompt: string): Promise<string> {
   const result = (await response.json()) as { success?: boolean; content?: string }
   if (result.success && result.content) return result.content
   throw new Error('Réponse chat invalide.')
+}
+
+/**
+ * Uses chat-z to turn user intent into a concise English positive prompt fragment
+ * (merged into the main fashion prompt).
+ */
+export async function refineCreativeNotesWithLlm(params: {
+  garmentSummary: string
+  logoText: string
+  currentNotes: string
+  userInstruction: string
+}): Promise<string> {
+  const { garmentSummary, logoText, currentNotes, userInstruction } = params
+  const prompt = `You are a senior fashion prompt engineer for an AI image generator.
+
+TASK: Output ONLY a single English paragraph of "additional creative direction" (no quotes, no bullet points, no preamble). Max 450 characters. Be specific about graphics, typography, placement, materials, trims, and vibe. Do not repeat the full garment list verbatim; add deltas only.
+
+CONTEXT — garment direction (English):
+${garmentSummary.slice(0, 1400)}
+
+CONTEXT — branding / text on garments (may be empty):
+${logoText.trim() ? logoText.trim().slice(0, 400) : '(none)'}
+
+CURRENT user notes (English, may be empty):
+${currentNotes.trim() ? currentNotes.trim().slice(0, 600) : '(none)'}
+
+USER request (any language):
+${userInstruction.trim().slice(0, 800)}`
+
+  const out = await sendChatMessage(prompt)
+  return out.trim().replace(/^["']|["']$/g, '')
 }

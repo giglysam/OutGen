@@ -1,8 +1,10 @@
 export const GUEST_GENERATION_LIMIT = 5
 
-/** Direct URL if you need it outside the browser client */
-export const IMAGE_API_PUBLIC = 'https://image-z.created.app/api/generate-image'
 export const CHAT_API = 'https://chat-z.created.app/api/chat'
+
+/** Appended to every image positivePrompt for stronger fidelity (Simple Generator). */
+export const IMAGE_PROMPT_QUALITY_SUFFIX =
+  'masterpiece, ultra sharp focus, intricate fabric weave and stitching, accurate typography if any text, cinematic studio lighting, 8k fashion campaign, color graded, no watermark'
 
 export const STORAGE_USER = 'outgen_user_v1'
 export const STORAGE_GUEST_GENS = 'outgen_guest_generations_v1'

@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import {
   COLLAR_ITEMS,
   COLOR_ITEMS,
+  CREATIVE_SNIPPETS,
   DETAIL_ITEMS,
   FABRIC_ITEMS,
   FINISH_ITEMS,
@@ -29,23 +31,41 @@ import {
 } from '../icons/StudioGlyphs'
 
 const MESH_MAX = 4
-const LIVE_DEBOUNCE_MS = 1000
+const LIVE_DEBOUNCE_MS = 1200
 
-/** Espace réservé = hauteur du dock + encoche iPhone (aligné sur le panneau fixe) */
+type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
+
+const MESH_FILTER_CHIPS: { id: MeshFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'tops', label: 'Tops' },
+  { id: 'outer', label: 'Outer' },
+  { id: 'bottoms', label: 'Bottoms' },
+  { id: 'accessories', label: 'Gear' },
+]
+
+/** Dock height + safe area — keep preview above fixed keyboard */
 const CONTENT_BOTTOM_SAFE =
-  'pb-[calc(clamp(17rem,48dvh,26.875rem)+env(safe-area-inset-bottom,0px))]'
+  'pb-[calc(clamp(18.5rem,52dvh,28rem)+env(safe-area-inset-bottom,0px))]'
 
 const CATEGORIES: { id: StudioCategory; label: string }[] = [
-  { id: 'pieces', label: 'Pièces' },
-  { id: 'coupe', label: 'Coupe' },
-  { id: 'matiere', label: 'Matière' },
-  { id: 'couleur', label: 'Couleur' },
-  { id: 'col', label: 'Col' },
-  { id: 'manches', label: 'Manches' },
-  { id: 'motif', label: 'Motif' },
-  { id: 'finition', label: 'Finition' },
-  { id: 'details', label: 'Détails' },
-  { id: 'texte', label: 'Texte' },
+  { id: 'pieces', label: 'Pieces' },
+  { id: 'coupe', label: 'Fit' },
+  { id: 'matiere', label: 'Fabric' },
+  { id: 'couleur', label: 'Color' },
+  { id: 'col', label: 'Neck' },
+  { id: 'manches', label: 'Sleeves' },
+  { id: 'motif', label: 'Pattern' },
+  { id: 'finition', label: 'Finish' },
+  { id: 'details', label: 'Details' },
+  { id: 'texte', label: 'Design+' },
+]
+
+const LOGO_CHIPS = [
+  { label: 'Chest wordmark', text: 'chest wordmark typography, high contrast, perfectly aligned' },
+  { label: 'Back graphic', text: 'large centered back graphic print, premium ink' },
+  { label: 'Sleeve repeat', text: 'small repeat logo along outer left sleeve' },
+  { label: '3D chrome', text: 'chrome 3D metallic logo badge on chest, subtle reflections' },
+  { label: 'Embroidery', text: 'dense tonal embroidery crest on chest' },
 ]
 
 function KeyTile({
@@ -67,12 +87,12 @@ function KeyTile({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`touch-manipulation flex flex-col items-center justify-center gap-0.5 rounded-xl border p-1 text-zinc-300 transition active:scale-[0.96] ${
-        subtitle ? 'min-h-[4.75rem]' : 'aspect-square min-h-0'
+      className={`touch-manipulation flex flex-col items-center justify-center gap-0.5 rounded-2xl border p-1 transition active:scale-[0.96] ${
+        subtitle ? 'min-h-[4.85rem]' : 'aspect-square min-h-0'
       } ${
         active
-          ? 'border-white bg-zinc-700/90 shadow-[0_0_0_1px_rgba(255,255,255,0.5)]'
-          : 'border-zinc-700/90 bg-zinc-800/50 hover:border-zinc-500 hover:bg-zinc-800'
+          ? 'border-fuchsia-400/60 bg-gradient-to-b from-fuchsia-500/25 to-violet-600/15 text-white shadow-[0_0_0_1px_rgba(232,121,249,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]'
+          : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-white/20 hover:bg-white/[0.07]'
       }`}
     >
       <span className="flex flex-1 items-center justify-center text-zinc-100">{children}</span>
@@ -97,7 +117,7 @@ function renderGlyph(cat: StudioCategory, item: PromptItem) {
       const hex = COLOR_SWATCH[item.id] || '#525252'
       return (
         <span
-          className="block h-8 w-8 rounded-full border-2 border-zinc-500 shadow-inner sm:h-9 sm:w-9"
+          className="block h-8 w-8 rounded-full border-2 border-white/20 shadow-inner sm:h-9 sm:w-9"
           style={{ background: hex }}
         />
       )
@@ -121,8 +141,24 @@ function categoryLabel(id: StudioCategory): string {
   return CATEGORIES.find((c) => c.id === id)?.label ?? id
 }
 
+function meshCategoryRank(c?: string): number {
+  switch (c) {
+    case 'Hauts':
+      return 0
+    case 'Outerwear':
+      return 1
+    case 'Bas':
+      return 2
+    case 'Accessoires':
+      return 3
+    default:
+      return 9
+  }
+}
+
 export function StudioPage() {
   const [cat, setCat] = useState<StudioCategory>('pieces')
+  const [meshFilter, setMeshFilter] = useState<MeshFilter>('all')
   const [liveBusy, setLiveBusy] = useState(false)
   const liveGen = useRef(0)
 
@@ -137,9 +173,24 @@ export function StudioPage() {
     generating,
     generated,
     patchGenerated,
+    setChatOpen,
+    setChatMode,
   } = useOutGen()
 
   const preview = generated.front
+
+  const filteredMeshItems = useMemo(() => {
+    if (meshFilter === 'all') return MESH_ITEMS
+    const map: Record<MeshFilter, string | undefined> = {
+      all: undefined,
+      tops: 'Hauts',
+      outer: 'Outerwear',
+      bottoms: 'Bas',
+      accessories: 'Accessoires',
+    }
+    const want = map[meshFilter]
+    return MESH_ITEMS.filter((m) => m.category === want)
+  }, [meshFilter])
 
   useEffect(() => {
     if (generating) return
@@ -155,7 +206,7 @@ export function StudioPage() {
           if (liveGen.current !== id) return
           patchGenerated({ front: url })
         } catch {
-          /* aperçu silencieux */
+          /* silent preview */
         } finally {
           if (liveGen.current === id) setLiveBusy(false)
         }
@@ -187,7 +238,9 @@ export function StudioPage() {
   function itemsForCategory(c: StudioCategory): PromptItem[] {
     switch (c) {
       case 'pieces':
-        return MESH_ITEMS
+        return [...filteredMeshItems].sort(
+          (a, b) => meshCategoryRank(a.category) - meshCategoryRank(b.category) || a.label.localeCompare(b.label),
+        )
       case 'coupe':
         return FIT_ITEMS
       case 'matiere':
@@ -257,176 +310,294 @@ export function StudioPage() {
     })
   }
 
+  function appendSnippet(snippet: string) {
+    setUserPrompt((prev) => {
+      const t = prev.trim()
+      const s = snippet.trim()
+      if (!s) return prev
+      if (!t) return s
+      if (t.toLowerCase().includes(s.toLowerCase().slice(0, 24))) return t
+      return `${t}; ${s}`
+    })
+  }
+
+  function appendLogoChip(text: string) {
+    setLogoDescription((prev) => {
+      const t = prev.trim()
+      const s = text.trim()
+      if (!t) return s
+      return `${t}; ${s}`
+    })
+  }
+
   const gridItems = itemsForCategory(cat)
   const showClear = cat !== 'pieces' && cat !== 'details' && cat !== 'texte'
 
   const keysGrid = (
     <>
       {cat === 'texte' ? (
-        <div className="space-y-3 p-1">
-          <label className="block text-left">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Logo / branding</span>
+        <div className="space-y-4 p-2">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Branding & text</span>
+              <span className="text-[9px] text-zinc-600">{logoDescription.length}/400</span>
+            </div>
             <textarea
-              className="mt-1 min-h-[64px] w-full rounded-lg border border-zinc-600 bg-zinc-900 px-2 py-2 text-sm text-white outline-none focus:border-white"
-              placeholder="Logo, broderie, typo…"
+              className="mt-1.5 min-h-[72px] w-full resize-y rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-zinc-600 focus:border-fuchsia-500/50"
+              placeholder="Logo, slogan, embroidery, placement (chest, back, sleeve)…"
               value={logoDescription}
+              maxLength={400}
               onChange={(e) => setLogoDescription(e.target.value)}
             />
-          </label>
-          <label className="block text-left">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Notes créatives</span>
+            <div className="kbd-scroll mt-2 flex gap-1.5 overflow-x-auto pb-1">
+              {LOGO_CHIPS.map((c) => (
+                <button
+                  key={c.label}
+                  type="button"
+                  onClick={() => appendLogoChip(c.text)}
+                  className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-semibold text-zinc-300 hover:border-fuchsia-500/40 hover:text-white"
+                >
+                  + {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Creative direction</span>
+              <span className="text-[9px] text-zinc-600">{userPrompt.length}/900</span>
+            </div>
             <textarea
-              className="mt-1 min-h-[64px] w-full rounded-lg border border-zinc-600 bg-zinc-900 px-2 py-2 text-sm text-white outline-none focus:border-white"
-              placeholder="Ambiance, références…"
+              className="mt-1.5 min-h-[88px] w-full resize-y rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-zinc-600 focus:border-violet-500/50"
+              placeholder="Vibe, graphics, trims, special effects — English works best for the model…"
               value={userPrompt}
+              maxLength={900}
               onChange={(e) => setUserPrompt(e.target.value)}
             />
-          </label>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
+              Each image request uses a fresh server session to reduce rate limits. Tap{' '}
+              <span className="font-semibold text-fuchsia-300">Refine with AI</span> to let the LLM rewrite this field.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setChatMode('design')
+                  setChatOpen(true)
+                }}
+                className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg"
+              >
+                Refine with AI
+              </button>
+              <NavLink
+                to="/visualiser"
+                className="rounded-xl border border-white/15 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-300 hover:border-white/30 hover:text-white"
+              >
+                All views
+              </NavLink>
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Style chips</span>
+            <div className="kbd-scroll mt-2 flex max-h-[9.5rem] flex-wrap gap-1.5 overflow-y-auto pr-1">
+              {CREATIVE_SNIPPETS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => appendSnippet(s.snippet)}
+                  className="rounded-xl border border-white/10 bg-zinc-900/60 px-2.5 py-1.5 text-left text-[10px] font-medium leading-snug text-zinc-300 hover:border-fuchsia-500/35 hover:text-white"
+                >
+                  + {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-1.5 p-1 sm:grid-cols-5 sm:gap-2">
-          {showClear && (
-            <KeyTile
-              active={
-                cat === 'coupe'
-                  ? selection.fitId === null
-                  : cat === 'matiere'
-                    ? selection.fabricId === null
-                    : cat === 'couleur'
-                      ? selection.colorId === null
-                      : cat === 'col'
-                        ? selection.collarId === null
-                        : cat === 'manches'
-                          ? selection.sleeveId === null
-                          : cat === 'motif'
-                            ? selection.patternId === null
-                            : selection.finishId === null
-              }
-              onClick={() =>
-                setSelection((s) => {
-                  switch (cat) {
-                    case 'coupe':
-                      return { ...s, fitId: null }
-                    case 'matiere':
-                      return { ...s, fabricId: null }
-                    case 'couleur':
-                      return { ...s, colorId: null }
-                    case 'col':
-                      return { ...s, collarId: null }
-                    case 'manches':
-                      return { ...s, sleeveId: null }
-                    case 'motif':
-                      return { ...s, patternId: null }
-                    case 'finition':
-                      return { ...s, finishId: null }
-                    default:
-                      return s
-                  }
-                })
-              }
-              label="Aucune sélection"
-            >
-              <span className="text-base font-light text-zinc-500">—</span>
-            </KeyTile>
+        <div className="space-y-2 p-1">
+          {cat === 'pieces' && (
+            <div className="kbd-scroll flex gap-1 overflow-x-auto px-0.5 pb-1">
+              {MESH_FILTER_CHIPS.map((chip) => {
+                const on = meshFilter === chip.id
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setMeshFilter(chip.id)}
+                    className={`touch-manipulation shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition ${
+                      on
+                        ? 'bg-white text-black shadow-md'
+                        : 'border border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {chip.label}
+                  </button>
+                )
+              })}
+            </div>
           )}
-          {gridItems.map((item) => (
-            <KeyTile
-              key={item.id}
-              active={isActiveItem(cat, item)}
-              onClick={() => {
-                if (cat === 'pieces') toggleMesh(item.id)
-                else if (cat === 'details') toggleDetail(item.id)
-                else pickItem(cat, item)
-              }}
-              label={item.label}
-              subtitle={cat === 'pieces' ? item.label : undefined}
-            >
-              {renderGlyph(cat, item)}
-            </KeyTile>
-          ))}
+          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 sm:gap-2">
+            {showClear && (
+              <KeyTile
+                active={
+                  cat === 'coupe'
+                    ? selection.fitId === null
+                    : cat === 'matiere'
+                      ? selection.fabricId === null
+                      : cat === 'couleur'
+                        ? selection.colorId === null
+                        : cat === 'col'
+                          ? selection.collarId === null
+                          : cat === 'manches'
+                            ? selection.sleeveId === null
+                            : cat === 'motif'
+                              ? selection.patternId === null
+                              : selection.finishId === null
+                }
+                onClick={() =>
+                  setSelection((s) => {
+                    switch (cat) {
+                      case 'coupe':
+                        return { ...s, fitId: null }
+                      case 'matiere':
+                        return { ...s, fabricId: null }
+                      case 'couleur':
+                        return { ...s, colorId: null }
+                      case 'col':
+                        return { ...s, collarId: null }
+                      case 'manches':
+                        return { ...s, sleeveId: null }
+                      case 'motif':
+                        return { ...s, patternId: null }
+                      case 'finition':
+                        return { ...s, finishId: null }
+                      default:
+                        return s
+                    }
+                  })
+                }
+                label="Clear selection"
+              >
+                <span className="text-base font-light text-zinc-500">—</span>
+              </KeyTile>
+            )}
+            {gridItems.map((item) => (
+              <KeyTile
+                key={item.id}
+                active={isActiveItem(cat, item)}
+                onClick={() => {
+                  if (cat === 'pieces') toggleMesh(item.id)
+                  else if (cat === 'details') toggleDetail(item.id)
+                  else pickItem(cat, item)
+                }}
+                label={item.label}
+                subtitle={cat === 'pieces' ? item.label : undefined}
+              >
+                {renderGlyph(cat, item)}
+              </KeyTile>
+            ))}
+          </div>
+          {cat === 'pieces' && (
+            <p className="border-t border-white/5 px-2 py-1.5 text-center text-[9px] text-zinc-500">
+              Up to {MESH_MAX} pieces · {selection.meshIds.length} selected
+            </p>
+          )}
         </div>
-      )}
-      {cat === 'pieces' && (
-        <p className="border-t border-zinc-800/80 px-2 py-1.5 text-center text-[9px] text-zinc-500">
-          Max {MESH_MAX} pièces · {selection.meshIds.length} sélectionnée(s)
-        </p>
       )}
     </>
   )
 
   return (
     <div className="relative mx-auto w-full max-w-lg lg:max-w-xl">
-      {/* ——— Zone scrollable : aperçu + CTA (jamais masquée par le clavier) ——— */}
-      <div className={`px-2 pt-1 ${CONTENT_BOTTOM_SAFE}`}>
+      <div className={`px-1 pt-1 sm:px-2 ${CONTENT_BOTTOM_SAFE}`}>
         <div className="text-center">
-          <h1 className="font-display text-lg font-bold tracking-tight text-white sm:text-xl">Studio</h1>
-          <p className="mt-1 text-[10px] text-zinc-500">
-            Aperçu ci-dessous · <span className="text-zinc-400">Clavier fixe en bas</span> · Puis toutes les vues
+          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-fuchsia-300/90">Outfit lab</p>
+          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Studio</h1>
+          <p className="mx-auto mt-2 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+            Build the look with the keyboard, preview updates automatically, then open{' '}
+            <NavLink to="/visualiser" className="text-zinc-300 underline decoration-white/20 underline-offset-2">
+              Visualiser
+            </NavLink>{' '}
+            for every angle.
           </p>
         </div>
 
-        <div className="relative mx-auto mt-3 h-[min(260px,34dvh)] w-[min(88vw,220px)] overflow-hidden rounded-2xl border border-zinc-600/70 bg-zinc-950 shadow-[0_16px_48px_rgba(0,0,0,0.5)] sm:h-[min(280px,32dvh)] sm:w-[min(260px,85vw)]">
-          {preview ? (
-            <img
-              src={preview}
-              alt="Aperçu de la tenue — vue de face"
-              className="h-full w-full object-cover object-top"
-              decoding="async"
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 px-3 text-center">
-              <span className="text-xs font-medium text-zinc-500">Aperçu face</span>
-              <span className="text-[10px] text-zinc-600">Utilise le clavier en bas pour choisir des pièces</span>
+        <div className="relative mx-auto mt-5 w-[min(92vw,260px)]">
+          <div
+            className="absolute -inset-[1px] rounded-[1.35rem] bg-gradient-to-br from-fuchsia-500/50 via-violet-500/30 to-cyan-400/25 opacity-90 blur-[1px]"
+            aria-hidden
+          />
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-950 shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+            <div className="relative aspect-[3/4] max-h-[min(420px,52dvh)] w-full sm:max-h-[min(440px,48dvh)]">
+              {preview ? (
+                <img
+                  src={preview}
+                  alt="Outfit preview — front view"
+                  className="h-full w-full object-cover object-top"
+                  decoding="async"
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-900/80 to-black px-5 text-center">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+                    Live preview
+                  </span>
+                  <p className="text-sm font-medium text-zinc-300">Pick at least one garment</p>
+                  <p className="text-[11px] leading-relaxed text-zinc-600">
+                    The dock stays fixed so you never lose your place on mobile.
+                  </p>
+                </div>
+              )}
+              {(liveBusy || generating) && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 text-xs font-medium text-white backdrop-blur-md">
+                  <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-fuchsia-400" />
+                  {generating ? 'Rendering all views…' : 'Refreshing preview…'}
+                </div>
+              )}
             </div>
-          )}
-          {(liveBusy || generating) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/65 text-xs font-medium text-white backdrop-blur-sm">
-              <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-              {generating ? 'Génération des vues…' : 'Mise à jour…'}
-            </div>
-          )}
+          </div>
         </div>
 
-        <div className="mx-auto mt-4 w-full max-w-xs space-y-2">
+        <div className="mx-auto mt-5 w-full max-w-xs space-y-2">
           <button
             type="button"
             disabled={generating || selection.meshIds.length === 0}
             onClick={() => void generateOutfitMultiView()}
-            className="w-full rounded-2xl bg-white py-3 text-sm font-bold uppercase tracking-wide text-black shadow-[0_0_28px_rgba(255,255,255,0.15)] transition hover:bg-zinc-100 disabled:opacity-40"
+            className="w-full rounded-2xl bg-white py-3.5 text-sm font-bold uppercase tracking-wide text-black shadow-[0_0_36px_rgba(255,255,255,0.18)] transition hover:bg-zinc-100 active:scale-[0.99] disabled:opacity-40"
           >
-            {generating ? 'Génération…' : 'Générer toutes les vues'}
+            {generating ? 'Generating…' : 'Generate all views'}
           </button>
-          <p className="text-center text-[9px] leading-relaxed text-zinc-600">
-            Onglet <span className="text-zinc-500">Visualiser</span> pour face, dos et profils.
+          <p className="text-center text-[10px] leading-relaxed text-zinc-600">
+            High-quality fashion render · Fresh session per request on the server
           </p>
         </div>
       </div>
 
-      {/* ——— Dock clavier : toujours visible, ancré au bas de l’écran ——— */}
       <aside
-        className="fixed bottom-0 left-0 right-0 z-40 flex h-[clamp(17rem,48dvh,26.875rem)] flex-col border-t border-zinc-600/50 bg-[#111113]/98 shadow-[0_-20px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[#111113]/92"
+        className="fixed bottom-0 left-0 right-0 z-40 flex h-[clamp(18.5rem,52dvh,28rem)] flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-28px_80px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
         style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))' }}
-        aria-label="Clavier de sélection"
+        aria-label="Clothing selection keyboard"
       >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
+
         <div className="mx-auto flex h-full min-h-0 w-full max-w-lg flex-col lg:max-w-xl">
-          {/* Poignée visuelle type clavier système */}
           <div className="flex shrink-0 justify-center py-2">
-            <span className="h-1 w-10 rounded-full bg-zinc-600" aria-hidden />
+            <span className="h-1 w-12 rounded-full bg-zinc-600" aria-hidden />
           </div>
 
-          <div className="flex shrink-0 items-end justify-between border-b border-zinc-800/90 px-3 pb-2 pt-0">
+          <div className="flex shrink-0 items-end justify-between border-b border-white/5 px-3 pb-2">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-500">Clavier</p>
-              <p className="text-sm font-semibold text-zinc-200">{categoryLabel(cat)}</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-500">Keyboard</p>
+              <p className="text-sm font-semibold text-zinc-100">{categoryLabel(cat)}</p>
             </div>
-            <span className="rounded-md bg-zinc-800 px-2 py-1 text-[9px] font-medium text-zinc-500">
-              {gridItems.length} options
+            <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-medium text-zinc-400">
+              {cat === 'texte' ? 'Pro' : `${gridItems.length} options`}
             </span>
           </div>
 
-          {/* Rangée catégories */}
-          <div className="shrink-0 border-b border-zinc-800/60 bg-zinc-950/50 px-2 py-2">
-            <div className="flex gap-1 overflow-x-auto kbd-scroll pb-0.5">
+          <div className="shrink-0 border-b border-white/5 bg-black/20 px-2 py-2">
+            <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
               {CATEGORIES.map((c) => {
                 const on = cat === c.id
                 return (
@@ -434,25 +605,22 @@ export function StudioPage() {
                     key={c.id}
                     type="button"
                     onClick={() => setCat(c.id)}
-                    className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5 transition active:scale-[0.97] ${
+                    className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-2 py-1.5 transition active:scale-[0.97] ${
                       on
-                        ? 'border-white bg-zinc-700 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.35)]'
-                        : 'border-zinc-700 bg-zinc-900/80 text-zinc-500 hover:border-zinc-500'
+                        ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(232,121,249,0.25)]'
+                        : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-200'
                     }`}
                   >
                     <span className="scale-90 [&>svg]:text-current">
                       <CategoryTabIcon cat={c.id} />
                     </span>
-                    <span className="max-w-[3.5rem] truncate text-[8px] font-bold uppercase tracking-wide">
-                      {c.label}
-                    </span>
+                    <span className="max-w-[4rem] truncate text-[8px] font-bold uppercase tracking-wide">{c.label}</span>
                   </button>
                 )
               })}
             </div>
           </div>
 
-          {/* Grille touches — scroll interne garanti */}
           <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-1">
             {keysGrid}
           </div>

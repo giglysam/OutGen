@@ -37,6 +37,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [authOpen, setAuthOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
+  const [chatMode, setChatMode] = useState<'help' | 'design'>('help')
   const [marketingDraft, setMarketingDraft] = useState<string | null>(null)
   const [guestUsed, setGuestUsed] = useState(() => getGuestGenerationCount())
 
@@ -58,6 +59,10 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
 
   const patchGenerated = useCallback((patch: Partial<GeneratedViews>) => {
     setGenerated((prev) => mergeGeneratedViews(prev, patch))
+  }, [])
+
+  const applyRefinedNotes = useCallback((nextNotes: string) => {
+    setUserPrompt(nextNotes.trim())
   }, [])
 
   const ensureCanGenerate = useCallback((): boolean => {
@@ -221,6 +226,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       setLogoDescription,
       userPrompt,
       setUserPrompt,
+      applyRefinedNotes,
       generated,
       patchGenerated,
       generating,
@@ -233,6 +239,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       setAuthOpen,
       chatOpen,
       setChatOpen,
+      chatMode,
+      setChatMode,
       signIn,
       signUp,
       signOut,
@@ -250,6 +258,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       selection,
       logoDescription,
       userPrompt,
+      applyRefinedNotes,
       generated,
       patchGenerated,
       generating,
@@ -259,6 +268,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       dismissToast,
       authOpen,
       chatOpen,
+      chatMode,
       marketingDraft,
       canUseVideo,
       canUseMarketing,

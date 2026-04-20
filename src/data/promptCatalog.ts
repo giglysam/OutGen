@@ -179,6 +179,22 @@ export const FINISH_ITEMS: PromptItem[] = [
   { id: 'fin-tech', label: 'Tech sans coutures', prompt: 'laser-cut edges and bonded seams aesthetic' },
 ]
 
+/** One-tap English fragments appended to creative notes (advanced keyboard). */
+export const CREATIVE_SNIPPETS: { id: string; label: string; snippet: string }[] = [
+  { id: 'sn-huge-type', label: 'Typo XXL', snippet: 'oversized chest typography in clean neo-grotesk, high contrast, perfectly kerned' },
+  { id: 'sn-arch-logo', label: 'Logo arche', snippet: 'small curved arch logo lockup above chest, embroidery or puff print' },
+  { id: 'sn-back-hit', label: 'Graph dos', snippet: 'large back print spanning shoulder blades, centered composition' },
+  { id: 'sn-sleeve-hit', label: 'Détail manche', snippet: 'repeat micro logo running along left sleeve outer seam' },
+  { id: 'sn-metallic', label: 'Effet métal', snippet: 'metallic foil accent hits on selected panels only, tasteful not garish' },
+  { id: 'sn-neon-edge', label: 'Contour néon', snippet: 'thin neon edge piping on seams and hood outline, cyber streetwear vibe' },
+  { id: 'sn-monogram', label: 'Monogramme', snippet: 'all-over tonal monogram jacquard subtle luxury repeat' },
+  { id: 'sn-patches', label: 'Patchs', snippet: 'mix of woven label patches and rubberized badges, asymmetric placement' },
+  { id: 'sn-deboss', label: 'Logo embossé', snippet: 'debossed tonal logo into heavyweight fabric, shadow depth' },
+  { id: 'sn-gradient', label: 'Dégradé', snippet: 'airbrushed color gradient fade across torso, soft and premium' },
+  { id: 'sn-tech-print', label: 'QR / tech', snippet: 'futuristic micro QR-like graphic motif as texture, not readable QR' },
+  { id: 'sn-vintage-crack', label: 'Vintage craquelé', snippet: 'intentionally cracked vintage ink print texture on graphics' },
+]
+
 export function findById(list: PromptItem[], id: string | null): PromptItem | undefined {
   if (!id) return undefined
   return list.find((x) => x.id === id)

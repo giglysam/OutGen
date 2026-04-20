@@ -7,9 +7,11 @@ export type OutGenContextValue = {
   selection: OutfitSelection
   setSelection: Dispatch<SetStateAction<OutfitSelection>>
   logoDescription: string
-  setLogoDescription: (v: string) => void
+  setLogoDescription: Dispatch<SetStateAction<string>>
   userPrompt: string
-  setUserPrompt: (v: string) => void
+  setUserPrompt: Dispatch<SetStateAction<string>>
+  /** Replace creative notes with LLM-refined text */
+  applyRefinedNotes: (nextNotes: string) => void
   generated: GeneratedViews
   /** Merge partial previews (e.g. live front) without clearing other angles */
   patchGenerated: (patch: Partial<GeneratedViews>) => void
@@ -23,6 +25,9 @@ export type OutGenContextValue = {
   setAuthOpen: (v: boolean) => void
   chatOpen: boolean
   setChatOpen: (v: boolean) => void
+  /** 'help' = product Q&A; 'design' = LLM refines creative notes for the image prompt */
+  chatMode: 'help' | 'design'
+  setChatMode: (m: 'help' | 'design') => void
   signIn: (email: string, password: string) => void
   signUp: (email: string, password: string, name: string, plan: PlanId) => void
   signOut: () => void

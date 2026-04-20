@@ -1,5 +1,8 @@
+import { fetchSimpleGeneratorImage } from '../server/simpleGenerator.mjs'
+
 /**
- * Vercel Serverless — forwards POST to image-z (JSON, raw image, or base64 body).
+ * Vercel Serverless — Simple Generator: fresh session per request (visit + POST + image fetch).
+ * Body: { prompt: string } or { positivePrompt: string } — full English fashion prompt.
  */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -8,30 +11,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const r = await fetch('https://image-z.created.app/api/generate-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}),
-    })
-
-    const ct = (r.headers.get('content-type') || '').toLowerCase()
-
-    if (ct.includes('image/')) {
-      const buf = Buffer.from(await r.arrayBuffer())
-      res.status(r.status)
-      res.setHeader('Content-Type', ct)
-      res.send(buf)
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body ?? {}
+    const positivePrompt = String(body.positivePrompt ?? body.prompt ?? '').trim()
+    if (!positivePrompt) {
+      res.status(400).json({ error: 'Missing prompt' })
       return
     }
 
-    const text = await r.text()
-    try {
-      const data = JSON.parse(text)
-      res.status(r.status).json(data)
-    } catch {
-      res.status(r.ok ? 200 : r.status).send(text)
-    }
+    const { contentType, buffer } = await fetchSimpleGeneratorImage(positivePrompt, {
+      generatorType: 'architecture',
+    })
+
+    res.status(200)
+    res.setHeader('Content-Type', contentType)
+    res.send(buffer)
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : 'Proxy error' })
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Image proxy error' })
   }
 }
