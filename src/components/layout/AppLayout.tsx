@@ -6,7 +6,7 @@ import { ToastStack } from '../ui/ToastStack'
 
 const tabs = [
   { to: '/', label: 'Studio', short: 'Studio', end: true },
-  { to: '/visualiser', label: 'Visualiser', short: 'Vues', end: false },
+  { to: '/visualize', label: 'Visualize', short: 'Views', end: false },
   { to: '/stats', label: 'Stats', short: 'Stats', end: false },
   { to: '/distribution', label: 'Distribution', short: 'Ship', end: false },
 ] as const

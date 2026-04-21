@@ -2,19 +2,19 @@ export function AnalyticsPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="font-display text-3xl font-bold text-white">Analyse intelligente</h1>
+        <h1 className="font-display text-3xl font-bold text-white">Smart analytics</h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-          Données illustratives — branche ton backend analytics (segmentation, viralité, benchmark) quand la base
-          sera connectée.
+          Illustrative data — connect your analytics backend (segmentation, virality, benchmarks) when the database
+          is wired up.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Audience cible', value: '18–34 urbain', sub: '+12% vs dernière capsule' },
-          { label: 'Tendance marché', value: 'Tech-street', sub: 'Aligné Q2' },
-          { label: 'Score viralité', value: '78 / 100', sub: 'Estimation mock' },
-          { label: 'Benchmark marques', value: 'Top 35%', sub: 'vs panel luxe sport' },
+          { label: 'Target audience', value: '18–34 urban', sub: '+12% vs last drop' },
+          { label: 'Market trend', value: 'Tech-street', sub: 'Aligned Q2' },
+          { label: 'Virality score', value: '78 / 100', sub: 'Mock estimate' },
+          { label: 'Brand benchmark', value: 'Top 35%', sub: 'vs luxe sport panel' },
         ].map((c) => (
           <div
             key={c.label}
@@ -35,7 +35,7 @@ export function AnalyticsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Segmentation audience</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Audience segmentation</h2>
           <div className="mt-6 flex items-center justify-center gap-8">
             <div
               className="relative h-40 w-40 rounded-full border-[14px] border-indigo-500/80 border-r-violet-500/60 border-b-fuchsia-500/50 border-l-cyan-500/70"
@@ -52,14 +52,14 @@ export function AnalyticsPage() {
                 <span className="text-cyan-400">●</span> Outdoor tech 21%
               </li>
               <li>
-                <span className="text-zinc-500">●</span> Autres 14%
+                <span className="text-zinc-500">●</span> Other 14%
               </li>
             </ul>
           </div>
         </div>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Tendances mensuelles</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Monthly trends</h2>
           <div className="mt-8 flex h-44 items-end justify-between gap-2 px-2">
             {[40, 55, 48, 70, 62, 88, 76].map((h, i) => (
               <div key={i} className="flex flex-1 flex-col items-center gap-2">
@@ -75,13 +75,13 @@ export function AnalyticsPage() {
       </div>
 
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Benchmark concurrentiel</h2>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Competitive benchmark</h2>
         <div className="mt-6 space-y-4">
           {[
-            { name: 'Ta capsule', pct: 82, highlight: true },
-            { name: 'Marque A', pct: 74 },
-            { name: 'Marque B', pct: 69 },
-            { name: 'Marque C', pct: 61 },
+            { name: 'Your capsule', pct: 82, highlight: true },
+            { name: 'Brand A', pct: 74 },
+            { name: 'Brand B', pct: 69 },
+            { name: 'Brand C', pct: 61 },
           ].map((row) => (
             <div key={row.name} className="flex items-center gap-4">
               <span className="w-28 text-xs text-zinc-400">{row.name}</span>

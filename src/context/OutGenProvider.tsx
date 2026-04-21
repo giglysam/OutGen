@@ -68,7 +68,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const ensureCanGenerate = useCallback((): boolean => {
     if (user) return true
     if (guestCanGenerate()) return true
-    pushToast('error', 'Essai gratuit épuisé (5 générations). Connectez-vous pour continuer.')
+    pushToast('error', 'Free trial used up (5 generations). Sign in to continue.')
     setAuthOpen(true)
     return false
   }, [user, pushToast])
@@ -89,21 +89,21 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const generateOutfitMultiView = useCallback(async () => {
     if (!ensureCanGenerate()) return
     if (selection.meshIds.length === 0) {
-      pushToast('error', 'Choisis au moins une pièce (grille silhouettes).')
+      pushToast('error', 'Pick at least one garment (silhouette grid).')
       return
     }
     setGenerating(true)
-    setGenerateProgress('Génération multi-vues…')
+    setGenerateProgress('Generating all views…')
     try {
       const chargeFirstOnly = !user
       for (let i = 0; i < VIEW_ORDER.length; i++) {
         const angle = VIEW_ORDER[i]
-        setGenerateProgress(`Vue ${angle} (${i + 1}/${VIEW_ORDER.length})`)
+        setGenerateProgress(`${angle} view (${i + 1}/${VIEW_ORDER.length})`)
         await runAngle(angle, chargeFirstOnly && i === 0)
       }
-      pushToast('success', 'Tenue générée — toutes les vues sont prêtes.')
+      pushToast('success', 'Outfit generated — all views are ready.')
     } catch (e) {
-      pushToast('error', e instanceof Error ? e.message : 'Erreur de génération image.')
+      pushToast('error', e instanceof Error ? e.message : 'Image generation failed.')
     } finally {
       setGenerating(false)
       setGenerateProgress(null)
@@ -114,12 +114,12 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     async (angle: ViewAngle) => {
       if (!ensureCanGenerate()) return
       setGenerating(true)
-      setGenerateProgress(`Régénération ${angle}`)
+      setGenerateProgress(`Regenerating ${angle}`)
       try {
         await runAngle(angle, !user)
-        pushToast('success', 'Vue mise à jour.')
+        pushToast('success', 'View updated.')
       } catch (e) {
-        pushToast('error', e instanceof Error ? e.message : 'Erreur de régénération.')
+        pushToast('error', e instanceof Error ? e.message : 'Regeneration failed.')
       } finally {
         setGenerating(false)
         setGenerateProgress(null)
@@ -134,21 +134,21 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const generateSocialVideo = useCallback(async () => {
     if (!user) {
       setAuthOpen(true)
-      pushToast('info', 'Connecte-toi avec un plan Recommended ou Enterprise pour la vidéo IA.')
+      pushToast('info', 'Sign in with a Recommended or Enterprise plan for AI video.')
       return
     }
     if (!canUseVideo) {
-      pushToast('error', 'La génération vidéo nécessite le plan Recommended ou Enterprise.')
+      pushToast('error', 'AI video requires a Recommended or Enterprise plan.')
       return
     }
     setGenerating(true)
-    setGenerateProgress('Préparation vidéo sociale (mock pipeline)…')
+    setGenerateProgress('Preparing social video (mock pipeline)…')
     await new Promise((r) => setTimeout(r, 1600))
     setGenerating(false)
     setGenerateProgress(null)
     pushToast(
       'success',
-      'Vidéo mise en file (mock). Branche ton provider vidéo côté API pour la sortie réelle.',
+      'Video queued (mock). Connect a real video provider on the API for actual output.',
     )
   }, [user, canUseVideo, pushToast])
 
@@ -158,19 +158,19 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       return
     }
     if (!canUseMarketing) {
-      pushToast('error', 'Le kit marketing avancé est réservé au plan Enterprise.')
+      pushToast('error', 'The advanced marketing kit is limited to the Enterprise plan.')
       return
     }
     setGenerating(true)
     try {
       const brief = buildFullPrompt(selection, logoDescription, userPrompt, 'front')
       const content = await sendChatMessage(
-        `Tu es un directeur créatif mode. À partir de cette direction visuelle (tenue), rédige en français : 1) nom de capsule 2) bio Instagram 80 mots max 3) 3 légendes de posts 4) 5 hashtags. Sois concret. Contexte technique: ${brief.slice(0, 1200)}`,
+        `You are a fashion creative director. From this outfit direction, write in English: 1) capsule name 2) Instagram bio (80 words max) 3) three post captions 4) five hashtags. Be concrete. Technical context: ${brief.slice(0, 1200)}`,
       )
       setMarketingDraft(content)
-      pushToast('success', 'Kit marketing généré (texte).')
+      pushToast('success', 'Marketing kit generated (text).')
     } catch (e) {
-      pushToast('error', e instanceof Error ? e.message : 'Erreur kit marketing.')
+      pushToast('error', e instanceof Error ? e.message : 'Marketing kit error.')
     } finally {
       setGenerating(false)
     }
@@ -180,7 +180,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     (email: string, password: string) => {
       const u = mockSignIn(email, password)
       setUser(u)
-      pushToast('success', `Bienvenue, ${u.name}.`)
+      pushToast('success', `Welcome, ${u.name}.`)
       setAuthOpen(false)
     },
     [pushToast],
@@ -190,7 +190,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     (email: string, password: string, name: string, plan: PlanId) => {
       const u = mockSignUp(email, password, name, plan)
       setUser(u)
-      pushToast('success', 'Compte créé (mock).')
+      pushToast('success', 'Account created (mock).')
       setAuthOpen(false)
     },
     [pushToast],
@@ -203,7 +203,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     })
     clearSession()
     setUser(null)
-    pushToast('info', 'Déconnexion.')
+    pushToast('info', 'Signed out.')
   }, [pushToast])
 
   const updatePlan = useCallback(
@@ -212,7 +212,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       const next = { ...user, plan }
       setUser(next)
       saveSession(next)
-      pushToast('success', `Plan mis à jour : ${plan}.`)
+      pushToast('success', `Plan updated: ${plan}.`)
     },
     [user, pushToast],
   )

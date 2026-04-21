@@ -31,21 +31,21 @@ export function AuthModal() {
           type="button"
           className="absolute right-4 top-4 text-zinc-500 hover:text-white"
           onClick={() => setAuthOpen(false)}
-          aria-label="Fermer"
+          aria-label="Close"
         >
           ✕
         </button>
         <h2 id="auth-title" className="font-display text-2xl font-bold text-white">
-          {mode === 'in' ? 'Connexion' : 'Créer un compte'}
+          {mode === 'in' ? 'Sign in' : 'Create account'}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Auth mock — stockage local uniquement. Branche ton provider (Clerk, Supabase…) plus tard.
+          Mock auth — local storage only. Wire your provider (Clerk, Supabase, etc.) later.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           {mode === 'up' && (
             <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Nom affiché
+              Display name
               <input
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-white"
                 value={name}
@@ -55,7 +55,7 @@ export function AuthModal() {
             </label>
           )}
           <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-            E-mail
+            Email
             <input
               required
               type="email"
@@ -66,7 +66,7 @@ export function AuthModal() {
             />
           </label>
           <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Mot de passe
+            Password
             <input
               required
               type="password"
@@ -78,7 +78,7 @@ export function AuthModal() {
           </label>
           {mode === 'up' && (
             <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Plan de départ (démo)
+              Starting plan (demo)
               <select
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-white"
                 value={plan}
@@ -96,7 +96,7 @@ export function AuthModal() {
             type="submit"
             className="mt-2 rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-zinc-200"
           >
-            {mode === 'in' ? 'Se connecter' : "S'inscrire"}
+            {mode === 'in' ? 'Sign in' : 'Sign up'}
           </button>
         </form>
 
@@ -105,7 +105,7 @@ export function AuthModal() {
           className="mt-4 w-full text-center text-sm text-zinc-500 hover:text-white"
           onClick={() => setMode(mode === 'in' ? 'up' : 'in')}
         >
-          {mode === 'in' ? 'Pas encore de compte ? Inscription' : 'Déjà un compte ? Connexion'}
+          {mode === 'in' ? 'No account yet? Sign up' : 'Already have an account? Sign in'}
         </button>
       </div>
     </div>

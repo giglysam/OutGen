@@ -61,7 +61,7 @@ export function ChatPanel() {
         ])
       } else {
         const reply = await sendChatMessage(
-          `Context: OutGen fashion AI studio (multi-view previews, guest trials, plans). Answer in French, concise. User question: ${q}`,
+          `Context: OutGen fashion AI studio (multi-view previews, guest trials, plans). Answer in English, concise. User question: ${q}`,
         )
         setMessages((m) => [...m, { role: 'assistant', text: reply }])
       }

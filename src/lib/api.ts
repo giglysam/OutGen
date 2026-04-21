@@ -18,16 +18,16 @@ function pickImageString(v: unknown): string | null {
 }
 
 function extractImageReference(data: unknown): string {
-  if (data == null) throw new Error('Réponse image vide.')
+  if (data == null) throw new Error('Empty image response.')
 
   if (typeof data === 'string') {
     const p = pickImageString(data)
     if (p) return p
-    throw new Error('Réponse texte non reconnue comme image.')
+    throw new Error('Text response was not recognized as an image.')
   }
 
   if (typeof data !== 'object') {
-    throw new Error('Réponse image invalide.')
+    throw new Error('Invalid image response.')
   }
 
   const o = data as Record<string, unknown>
@@ -53,7 +53,7 @@ function extractImageReference(data: unknown): string {
   if (url) return url
 
   const debug = JSON.stringify(data).slice(0, 320)
-  throw new Error(`Réponse sans image exploitable. Extrait : ${debug}`)
+  throw new Error(`No usable image in response. Snippet: ${debug}`)
 }
 
 /**
@@ -70,7 +70,7 @@ function withQualitySuffix(prompt: string): string {
 
 export async function generateImage(prompt: string): Promise<string> {
   const trimmed = typeof prompt === 'string' ? prompt.trim() : ''
-  if (!trimmed) throw new Error('Le prompt ne peut pas être vide.')
+  if (!trimmed) throw new Error('Prompt cannot be empty.')
 
   const positivePrompt = withQualitySuffix(trimmed)
 
@@ -121,7 +121,7 @@ export async function generateImage(prompt: string): Promise<string> {
     return `data:image/png;base64,${plain.replace(/\s/g, '')}`
   }
 
-  throw new Error(`Réponse inattendue (Content-Type: ${ct || '—'}). Début : ${rawText.slice(0, 120)}`)
+  throw new Error(`Unexpected response (Content-Type: ${ct || 'n/a'}). Start: ${rawText.slice(0, 120)}`)
 }
 
 export async function sendChatMessage(prompt: string): Promise<string> {
@@ -138,7 +138,7 @@ export async function sendChatMessage(prompt: string): Promise<string> {
 
   const result = (await response.json()) as { success?: boolean; content?: string }
   if (result.success && result.content) return result.content
-  throw new Error('Réponse chat invalide.')
+  throw new Error('Invalid chat response.')
 }
 
 /**

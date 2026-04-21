@@ -84,10 +84,10 @@ export function buildFullPrompt(
 export const VIEW_ORDER: ViewAngle[] = ['front', 'back', 'left', 'right', 'top', 'down']
 
 export const VIEW_LABELS: Record<ViewAngle, string> = {
-  front: 'Face',
-  back: 'Dos',
-  left: 'Profil G.',
-  right: 'Profil D.',
-  top: 'Plongée',
-  down: 'Contre-plongée',
+  front: 'Front',
+  back: 'Back',
+  left: 'Left ¾',
+  right: 'Right ¾',
+  top: 'High angle',
+  down: 'Low angle',
 }

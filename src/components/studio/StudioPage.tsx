@@ -38,9 +38,9 @@ type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 const MESH_FILTER_CHIPS: { id: MeshFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'tops', label: 'Tops' },
-  { id: 'outer', label: 'Outer' },
+  { id: 'outer', label: 'Outerwear' },
   { id: 'bottoms', label: 'Bottoms' },
-  { id: 'accessories', label: 'Gear' },
+  { id: 'accessories', label: 'Accessories' },
 ]
 
 /** Dock height + safe area — keep preview above fixed keyboard */
@@ -143,13 +143,13 @@ function categoryLabel(id: StudioCategory): string {
 
 function meshCategoryRank(c?: string): number {
   switch (c) {
-    case 'Hauts':
+    case 'Tops':
       return 0
     case 'Outerwear':
       return 1
-    case 'Bas':
+    case 'Bottoms':
       return 2
-    case 'Accessoires':
+    case 'Accessories':
       return 3
     default:
       return 9
@@ -183,10 +183,10 @@ export function StudioPage() {
     if (meshFilter === 'all') return MESH_ITEMS
     const map: Record<MeshFilter, string | undefined> = {
       all: undefined,
-      tops: 'Hauts',
+      tops: 'Tops',
       outer: 'Outerwear',
-      bottoms: 'Bas',
-      accessories: 'Accessoires',
+      bottoms: 'Bottoms',
+      accessories: 'Accessories',
     }
     const want = map[meshFilter]
     return MESH_ITEMS.filter((m) => m.category === want)
@@ -391,7 +391,7 @@ export function StudioPage() {
                 Refine with AI
               </button>
               <NavLink
-                to="/visualiser"
+                to="/visualize"
                 className="rounded-xl border border-white/15 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-300 hover:border-white/30 hover:text-white"
               >
                 All views
@@ -517,8 +517,8 @@ export function StudioPage() {
           <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Studio</h1>
           <p className="mx-auto mt-2 max-w-sm text-[11px] leading-relaxed text-zinc-500">
             Build the look with the keyboard, preview updates automatically, then open{' '}
-            <NavLink to="/visualiser" className="text-zinc-300 underline decoration-white/20 underline-offset-2">
-              Visualiser
+            <NavLink to="/visualize" className="text-zinc-300 underline decoration-white/20 underline-offset-2">
+              Visualize
             </NavLink>{' '}
             for every angle.
           </p>

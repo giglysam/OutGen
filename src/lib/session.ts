@@ -25,7 +25,7 @@ export function mockSignUp(email: string, password: string, name: string, plan: 
   void password
   const user: UserSession = {
     email,
-    name: name || email.split('@')[0] || 'Créateur',
+    name: name || email.split('@')[0] || 'Creator',
     plan,
     createdAt: new Date().toISOString(),
   }
@@ -36,5 +36,5 @@ export function mockSignUp(email: string, password: string, name: string, plan: 
 export function mockSignIn(email: string, _password: string): UserSession {
   const existing = loadSession()
   if (existing && existing.email === email) return existing
-  return mockSignUp(email, _password, email.split('@')[0] || 'Créateur', 'classic')
+  return mockSignUp(email, _password, email.split('@')[0] || 'Creator', 'classic')
 }

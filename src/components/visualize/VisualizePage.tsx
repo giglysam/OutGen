@@ -8,10 +8,10 @@ export function VisualizePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold text-white">Visualisation multi-vues</h1>
+        <h1 className="font-display text-3xl font-bold text-white">Multi-view visualization</h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-          Chaque carte correspond à un angle de caméra défini dans le prompt. Régénère une vue seule si tu ajustes
-          un détail.
+          Each card matches a camera angle defined in the prompt. Regenerate a single view after you tweak a
+          detail.
         </p>
       </div>
 
@@ -33,7 +33,7 @@ export function VisualizePage() {
                   onClick={() => void regenerateAngle(angle)}
                   className="rounded-lg border border-zinc-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-white hover:text-white disabled:opacity-40"
                 >
-                  Régénérer
+                  Regenerate
                 </button>
               </div>
               <div className="relative aspect-square bg-zinc-900">
@@ -41,7 +41,7 @@ export function VisualizePage() {
                   <img src={url} alt={VIEW_LABELS[angle]} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full items-center justify-center p-4 text-center text-xs text-zinc-600">
-                    Pas encore généré — lance le studio.
+                    Not generated yet — open the studio.
                   </div>
                 )}
               </div>

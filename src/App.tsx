@@ -13,7 +13,8 @@ export default function App() {
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={<StudioPage />} />
-            <Route path="visualiser" element={<VisualizePage />} />
+            <Route path="visualize" element={<VisualizePage />} />
+            <Route path="visualiser" element={<Navigate to="/visualize" replace />} />
             <Route path="stats" element={<AnalyticsPage />} />
             <Route path="distribution" element={<DistributionPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
