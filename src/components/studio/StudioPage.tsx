@@ -33,9 +33,8 @@ import {
 const MESH_MAX = 4
 const LIVE_DEBOUNCE_MS = 1200
 
-/** Expanded dock height (matches previous keyboard). Minimized bar is ~5.25rem. */
-const DOCK_EXPANDED_CSS = 'min(28rem, max(18.5rem, 52dvh))'
-const DOCK_MINIMIZED_REM = '5.25rem'
+/** Slim bar height for the collapsed tool (switch / expand). */
+const PANEL_SLIM = '3.25rem'
 
 type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 
@@ -168,7 +167,12 @@ export function StudioPage() {
   const [cat, setCat] = useState<StudioCategory>('pieces')
   const [meshFilter, setMeshFilter] = useState<MeshFilter>('all')
   const [liveBusy, setLiveBusy] = useState(false)
-  const [dockMinimized, setDockMinimized] = useState(false)
+  /** Which tool owns the large panel — the other is only a slim bar. */
+  const [studioPanel, setStudioPanel] = useState<'keyboard' | 'chat'>('keyboard')
+  /** When panel is keyboard: true = only slim bar (keyboard minimized). */
+  const [keyboardSlimOnly, setKeyboardSlimOnly] = useState(false)
+  /** When panel is chat: true = only slim bar (chat minimized). */
+  const [chatSlimOnly, setChatSlimOnly] = useState(true)
   const [chatMode, setChatMode] = useState<'help' | 'design'>('design')
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([])
@@ -395,9 +399,23 @@ export function StudioPage() {
   const gridItems = itemsForCategory(cat)
   const showClear = cat !== 'pieces' && cat !== 'details' && cat !== 'texte'
 
-  const contentBottomPad = dockMinimized
-    ? `calc(${DOCK_MINIMIZED_REM} + env(safe-area-inset-bottom, 0px))`
-    : `calc(${DOCK_EXPANDED_CSS} + env(safe-area-inset-bottom, 0px))`
+  const expandedH = 'min(28rem, max(18.5rem, 52dvh))'
+  const keyboardBarH = studioPanel === 'keyboard' ? (keyboardSlimOnly ? PANEL_SLIM : expandedH) : PANEL_SLIM
+  const chatBarH = studioPanel === 'chat' ? (chatSlimOnly ? PANEL_SLIM : expandedH) : PANEL_SLIM
+  const contentBottomPad = `calc(${keyboardBarH} + ${chatBarH} + env(safe-area-inset-bottom, 0px))`
+
+  function showKeyboardFull() {
+    setStudioPanel('keyboard')
+    setKeyboardSlimOnly(false)
+    setChatSlimOnly(true)
+  }
+
+  function showChatFull() {
+    setStudioPanel('chat')
+    setChatSlimOnly(false)
+    setKeyboardSlimOnly(true)
+  }
+
 
   const keysGrid = (
     <>
@@ -442,7 +460,7 @@ export function StudioPage() {
               onChange={(e) => setUserPrompt(e.target.value)}
             />
             <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-              Each image uses a fresh server session. Refine notes with the <span className="font-semibold text-fuchsia-300">AI bar</span> below.
+              Each image uses a fresh server session. Switch to the <span className="font-semibold text-fuchsia-300">AI chat</span> panel below to refine notes.
             </p>
             <NavLink
               to="/visualize"
@@ -598,7 +616,7 @@ export function StudioPage() {
                   </span>
                   <p className="text-sm font-medium text-zinc-300">Pick at least one garment</p>
                   <p className="text-[11px] leading-relaxed text-zinc-600">
-                    Expand the dock for the full keyboard and AI. Tap minimize for more canvas.
+                    Use the keyboard panel for pieces and options, or switch to AI chat — only one expands at a time.
                   </p>
                 </div>
               )}
@@ -627,41 +645,135 @@ export function StudioPage() {
         </div>
       </div>
 
-      <aside
-        className={`fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-28px_80px_rgba(0,0,0,0.75)] backdrop-blur-2xl ${
-          dockMinimized ? 'max-h-[5.5rem]' : `h-[clamp(18.5rem,52dvh,28rem)]`
-        }`}
-        style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
-        aria-label="Studio keyboard and AI"
+      {/* Bottom: two separate containers — keyboard strip + chat strip; only one expands at a time */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-20px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
+        style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/35 to-transparent" />
 
-        <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col lg:max-w-xl">
-          {/* Title bar — always visible; minimize / expand */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-2 py-2">
-            <div className="flex flex-1 items-center gap-2">
-              <span className="h-1 w-10 shrink-0 rounded-full bg-zinc-600" aria-hidden />
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Studio dock</p>
-                <p className="truncate text-xs font-semibold text-zinc-200">
-                  {dockMinimized ? 'Keyboard hidden' : categoryLabel(cat)}
-                </p>
+        {/* ——— Keyboard container ——— */}
+        <section
+          className="mx-auto flex w-full max-w-lg flex-col border-b border-white/5 lg:max-w-xl"
+          style={
+            studioPanel === 'keyboard' && !keyboardSlimOnly
+              ? { height: `clamp(18.5rem, 52dvh, 28rem)` }
+              : { height: PANEL_SLIM }
+          }
+          aria-label="Clothing keyboard"
+        >
+          {studioPanel === 'keyboard' && !keyboardSlimOnly ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-2 py-1.5">
+                <span className="h-1 w-9 shrink-0 rounded-full bg-zinc-600" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Keyboard</p>
+                  <p className="truncate text-xs font-semibold text-zinc-100">{categoryLabel(cat)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => showChatFull()}
+                  className="touch-manipulation shrink-0 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-fuchsia-200"
+                >
+                  AI chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKeyboardSlimOnly(true)}
+                  className="touch-manipulation shrink-0 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+                >
+                  Minimize
+                </button>
+              </div>
+              <div className="flex shrink-0 items-end justify-between px-2 py-1">
+                <span className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-medium text-zinc-500">
+                  {cat === 'texte' ? 'Pro' : `${gridItems.length} opt`}
+                </span>
+              </div>
+              <div className="shrink-0 border-b border-white/5 bg-black/25 px-1.5 py-1">
+                <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
+                  {CATEGORIES.map((c) => {
+                    const on = cat === c.id
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCat(c.id)}
+                        className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1 transition active:scale-[0.97] ${
+                          on
+                            ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white'
+                            : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="scale-[0.85] [&>svg]:text-current">
+                          <CategoryTabIcon cat={c.id} />
+                        </span>
+                        <span className="max-w-[3.25rem] truncate text-[7px] font-bold uppercase">{c.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-0.5">
+                {keysGrid}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setDockMinimized((v) => !v)}
-              className="touch-manipulation shrink-0 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-200 hover:bg-white/10"
-            >
-              {dockMinimized ? 'Expand' : 'Minimize'}
-            </button>
-          </div>
+          ) : (
+            <div className="flex h-full items-center gap-2 px-2">
+              <span className="h-1 w-8 shrink-0 rounded-full bg-zinc-600" aria-hidden />
+              <span className="flex-1 truncate text-xs font-semibold text-zinc-300">Keyboard</span>
+              <button
+                type="button"
+                onClick={() => showChatFull()}
+                className="touch-manipulation shrink-0 rounded-lg border border-fuchsia-500/35 px-2 py-1 text-[9px] font-bold uppercase text-fuchsia-200"
+              >
+                AI chat
+              </button>
+              <button
+                type="button"
+                onClick={() => showKeyboardFull()}
+                className="touch-manipulation shrink-0 rounded-lg bg-white px-2.5 py-1 text-[9px] font-bold uppercase text-black"
+              >
+                Expand
+              </button>
+            </div>
+          )}
+        </section>
 
-          {!dockMinimized && (
-            <>
-              {/* AI + chat — same container as keyboard */}
-              <div className="shrink-0 border-b border-white/5 bg-black/30 px-2 py-2">
-                <div className="mb-2 flex gap-1">
+        {/* ——— AI chat container (separate from keyboard) ——— */}
+        <section
+          className="mx-auto flex w-full max-w-lg flex-col border-t border-white/5 lg:max-w-xl"
+          style={
+            studioPanel === 'chat' && !chatSlimOnly
+              ? { height: `clamp(18.5rem, 52dvh, 28rem)` }
+              : { height: PANEL_SLIM }
+          }
+          aria-label="AI assistant chat"
+        >
+          {studioPanel === 'chat' && !chatSlimOnly ? (
+            <div className="flex min-h-0 flex-1 flex-col bg-black/25">
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-2 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-fuchsia-400/90">AI chat</p>
+                  <p className="truncate text-xs text-zinc-400">Refine notes or ask for help</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => showKeyboardFull()}
+                  className="touch-manipulation shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+                >
+                  Keyboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChatSlimOnly(true)}
+                  className="touch-manipulation shrink-0 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+                >
+                  Minimize
+                </button>
+              </div>
+              <div className="shrink-0 border-b border-white/5 px-2 py-1.5">
+                <div className="flex gap-1">
                   <button
                     type="button"
                     onClick={() => setChatMode('design')}
@@ -683,36 +795,38 @@ export function StudioPage() {
                     Help
                   </button>
                 </div>
-                {chatMode === 'design' && (
-                  <div className="kbd-scroll mb-2 flex gap-1 overflow-x-auto pb-0.5">
-                    {DESIGN_SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setChatInput(s)}
-                        className="shrink-0 rounded-full border border-white/10 bg-zinc-900/80 px-2.5 py-1 text-[9px] font-medium text-zinc-400 hover:border-fuchsia-500/40 hover:text-white"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="kbd-scroll mb-2 max-h-[4.5rem] space-y-1 overflow-y-auto text-[10px] leading-snug">
-                  {chatMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-lg px-2 py-1 ${
-                        msg.role === 'user' ? 'ml-4 bg-zinc-800 text-zinc-200' : 'mr-2 bg-zinc-900/90 text-zinc-400'
-                      }`}
+              </div>
+              {chatMode === 'design' && (
+                <div className="kbd-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-white/5 px-2 py-1">
+                  {DESIGN_SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setChatInput(s)}
+                      className="shrink-0 rounded-full border border-white/10 bg-zinc-900/80 px-2 py-0.5 text-[9px] font-medium text-zinc-400 hover:border-fuchsia-500/40 hover:text-white"
                     >
-                      {msg.text}
-                    </div>
+                      {s}
+                    </button>
                   ))}
-                  {chatLoading && <p className="text-[9px] text-fuchsia-400/90">Thinking…</p>}
                 </div>
+              )}
+              <div className="kbd-scroll min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-1.5 text-[10px] leading-snug">
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-lg px-2 py-1 ${
+                      msg.role === 'user' ? 'ml-3 bg-zinc-800 text-zinc-200' : 'mr-1 bg-zinc-900/90 text-zinc-400'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                ))}
+                {chatLoading && <p className="text-[9px] text-fuchsia-400/90">Thinking…</p>}
+              </div>
+              <div className="shrink-0 border-t border-white/5 p-2">
                 <div className="flex gap-1.5">
                   <input
-                    className="min-h-9 flex-1 rounded-lg border border-white/10 bg-black/50 px-2 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-fuchsia-500/50"
+                    className="min-h-9 flex-1 rounded-lg border border-white/10 bg-black/60 px-2 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-fuchsia-500/50"
                     placeholder={chatMode === 'design' ? 'Refine the outfit prompt…' : 'Ask a question…'}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
@@ -730,49 +844,29 @@ export function StudioPage() {
                   </button>
                 </div>
               </div>
-
-              <div className="flex shrink-0 items-end justify-between border-b border-white/5 px-3 py-1.5">
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-500">Keyboard</p>
-                  <p className="text-sm font-semibold text-zinc-100">{categoryLabel(cat)}</p>
-                </div>
-                <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-medium text-zinc-400">
-                  {cat === 'texte' ? 'Pro' : `${gridItems.length} options`}
-                </span>
-              </div>
-
-              <div className="shrink-0 border-b border-white/5 bg-black/20 px-2 py-1.5">
-                <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
-                  {CATEGORIES.map((c) => {
-                    const on = cat === c.id
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setCat(c.id)}
-                        className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-2 py-1.5 transition active:scale-[0.97] ${
-                          on
-                            ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(232,121,249,0.25)]'
-                            : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-200'
-                        }`}
-                      >
-                        <span className="scale-90 [&>svg]:text-current">
-                          <CategoryTabIcon cat={c.id} />
-                        </span>
-                        <span className="max-w-[4rem] truncate text-[8px] font-bold uppercase tracking-wide">
-                          {c.label}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-1">{keysGrid}</div>
-            </>
+            </div>
+          ) : (
+            <div className="flex h-full items-center gap-2 px-2">
+              <span className="h-1 w-8 shrink-0 rounded-full bg-fuchsia-900/80" aria-hidden />
+              <span className="flex-1 truncate text-xs font-semibold text-fuchsia-200/90">AI chat</span>
+              <button
+                type="button"
+                onClick={() => showKeyboardFull()}
+                className="touch-manipulation shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+              >
+                Keyboard
+              </button>
+              <button
+                type="button"
+                onClick={() => showChatFull()}
+                className="touch-manipulation shrink-0 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-2.5 py-1 text-[9px] font-bold uppercase text-white"
+              >
+                Expand
+              </button>
+            </div>
           )}
-        </div>
-      </aside>
+        </section>
+      </div>
     </div>
   )
 }
