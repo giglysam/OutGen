@@ -23,11 +23,6 @@ export type OutGenContextValue = {
   dismissToast: (id: string) => void
   authOpen: boolean
   setAuthOpen: (v: boolean) => void
-  chatOpen: boolean
-  setChatOpen: (v: boolean) => void
-  /** 'help' = product Q&A; 'design' = LLM refines creative notes for the image prompt */
-  chatMode: 'help' | 'design'
-  setChatMode: (m: 'help' | 'design') => void
   signIn: (email: string, password: string) => void
   signUp: (email: string, password: string, name: string, plan: PlanId) => void
   signOut: () => void

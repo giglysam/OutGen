@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   COLLAR_ITEMS,
@@ -14,8 +14,8 @@ import {
 } from '../../data/promptCatalog'
 import { useOutGen } from '../../hooks/useOutGen'
 import type { PromptItem } from '../../types'
-import { buildFullPrompt } from '../../lib/promptBuilder'
-import { generateImage } from '../../lib/api'
+import { buildFullPrompt, buildGarmentDescription } from '../../lib/promptBuilder'
+import { generateImage, refineCreativeNotesWithLlm, sendChatMessage } from '../../lib/api'
 import { COLOR_SWATCH } from '../../lib/colorSwatches'
 import {
   CategoryTabIcon,
@@ -33,6 +33,10 @@ import {
 const MESH_MAX = 4
 const LIVE_DEBOUNCE_MS = 1200
 
+/** Expanded dock height (matches previous keyboard). Minimized bar is ~5.25rem. */
+const DOCK_EXPANDED_CSS = 'min(28rem, max(18.5rem, 52dvh))'
+const DOCK_MINIMIZED_REM = '5.25rem'
+
 type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 
 const MESH_FILTER_CHIPS: { id: MeshFilter; label: string }[] = [
@@ -42,10 +46,6 @@ const MESH_FILTER_CHIPS: { id: MeshFilter; label: string }[] = [
   { id: 'bottoms', label: 'Bottoms' },
   { id: 'accessories', label: 'Accessories' },
 ]
-
-/** Dock height + safe area — keep preview above fixed keyboard */
-const CONTENT_BOTTOM_SAFE =
-  'pb-[calc(clamp(18.5rem,52dvh,28rem)+env(safe-area-inset-bottom,0px))]'
 
 const CATEGORIES: { id: StudioCategory; label: string }[] = [
   { id: 'pieces', label: 'Pieces' },
@@ -66,6 +66,14 @@ const LOGO_CHIPS = [
   { label: 'Sleeve repeat', text: 'small repeat logo along outer left sleeve' },
   { label: '3D chrome', text: 'chrome 3D metallic logo badge on chest, subtle reflections' },
   { label: 'Embroidery', text: 'dense tonal embroidery crest on chest' },
+]
+
+const DESIGN_SUGGESTIONS = [
+  'Add oversized chest typography',
+  'Metallic foil logo on the hood',
+  'Neon piping on seams',
+  'Vintage cracked print on the back',
+  'Small embroidered arch logo',
 ]
 
 function KeyTile({
@@ -160,6 +168,11 @@ export function StudioPage() {
   const [cat, setCat] = useState<StudioCategory>('pieces')
   const [meshFilter, setMeshFilter] = useState<MeshFilter>('all')
   const [liveBusy, setLiveBusy] = useState(false)
+  const [dockMinimized, setDockMinimized] = useState(false)
+  const [chatMode, setChatMode] = useState<'help' | 'design'>('design')
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([])
+  const [chatLoading, setChatLoading] = useState(false)
   const liveGen = useRef(0)
 
   const {
@@ -169,15 +182,30 @@ export function StudioPage() {
     setLogoDescription,
     userPrompt,
     setUserPrompt,
+    applyRefinedNotes,
     generateOutfitMultiView,
     generating,
     generated,
     patchGenerated,
-    setChatOpen,
-    setChatMode,
   } = useOutGen()
 
   const preview = generated.front
+
+  const resetChatIntro = useCallback((mode: 'help' | 'design') => {
+    setChatMessages([
+      {
+        role: 'assistant',
+        text:
+          mode === 'design'
+            ? 'Describe changes (text, graphics, materials). I will refine your creative notes for the image model.'
+            : 'Ask about OutGen, plans, or the studio.',
+      },
+    ])
+  }, [])
+
+  useEffect(() => {
+    resetChatIntro(chatMode)
+  }, [chatMode, resetChatIntro])
 
   const filteredMeshItems = useMemo(() => {
     if (meshFilter === 'all') return MESH_ITEMS
@@ -215,6 +243,40 @@ export function StudioPage() {
 
     return () => window.clearTimeout(t)
   }, [selection, logoDescription, userPrompt, generating, patchGenerated])
+
+  async function sendDockChat() {
+    const q = chatInput.trim()
+    if (!q || chatLoading) return
+    setChatInput('')
+    setChatMessages((m) => [...m, { role: 'user', text: q }])
+    setChatLoading(true)
+    try {
+      if (chatMode === 'design') {
+        const garmentSummary = buildGarmentDescription(selection)
+        const refined = await refineCreativeNotesWithLlm({
+          garmentSummary,
+          logoText: logoDescription,
+          currentNotes: userPrompt,
+          userInstruction: q,
+        })
+        applyRefinedNotes(refined)
+        setChatMessages((m) => [
+          ...m,
+          { role: 'assistant', text: `Updated creative notes:\n\n${refined}` },
+        ])
+      } else {
+        const reply = await sendChatMessage(
+          `Context: OutGen fashion AI studio (multi-view previews, guest trials, plans). Answer in English, concise. User question: ${q}`,
+        )
+        setChatMessages((m) => [...m, { role: 'assistant', text: reply }])
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Request failed.'
+      setChatMessages((m) => [...m, { role: 'assistant', text: msg }])
+    } finally {
+      setChatLoading(false)
+    }
+  }
 
   function toggleMesh(id: string) {
     setSelection((s) => {
@@ -333,6 +395,10 @@ export function StudioPage() {
   const gridItems = itemsForCategory(cat)
   const showClear = cat !== 'pieces' && cat !== 'details' && cat !== 'texte'
 
+  const contentBottomPad = dockMinimized
+    ? `calc(${DOCK_MINIMIZED_REM} + env(safe-area-inset-bottom, 0px))`
+    : `calc(${DOCK_EXPANDED_CSS} + env(safe-area-inset-bottom, 0px))`
+
   const keysGrid = (
     <>
       {cat === 'texte' ? (
@@ -370,33 +436,20 @@ export function StudioPage() {
             </div>
             <textarea
               className="mt-1.5 min-h-[88px] w-full resize-y rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-zinc-600 focus:border-violet-500/50"
-              placeholder="Vibe, graphics, trims, special effects — English works best for the model…"
+              placeholder="Mood, graphics, trims, effects — English works best for the model…"
               value={userPrompt}
               maxLength={900}
               onChange={(e) => setUserPrompt(e.target.value)}
             />
             <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-              Each image request uses a fresh server session to reduce rate limits. Tap{' '}
-              <span className="font-semibold text-fuchsia-300">Refine with AI</span> to let the LLM rewrite this field.
+              Each image uses a fresh server session. Refine notes with the <span className="font-semibold text-fuchsia-300">AI bar</span> below.
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setChatMode('design')
-                  setChatOpen(true)
-                }}
-                className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg"
-              >
-                Refine with AI
-              </button>
-              <NavLink
-                to="/visualize"
-                className="rounded-xl border border-white/15 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-300 hover:border-white/30 hover:text-white"
-              >
-                All views
-              </NavLink>
-            </div>
+            <NavLink
+              to="/visualize"
+              className="mt-2 inline-flex rounded-xl border border-white/15 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-300 hover:border-white/30 hover:text-white"
+            >
+              All views
+            </NavLink>
           </div>
 
           <div>
@@ -511,7 +564,7 @@ export function StudioPage() {
 
   return (
     <div className="relative mx-auto w-full max-w-lg lg:max-w-xl">
-      <div className={`px-1 pt-1 sm:px-2 ${CONTENT_BOTTOM_SAFE}`}>
+      <div className="px-1 pt-1 sm:px-2" style={{ paddingBottom: contentBottomPad }}>
         <div className="text-center">
           <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-fuchsia-300/90">Outfit lab</p>
           <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Studio</h1>
@@ -545,7 +598,7 @@ export function StudioPage() {
                   </span>
                   <p className="text-sm font-medium text-zinc-300">Pick at least one garment</p>
                   <p className="text-[11px] leading-relaxed text-zinc-600">
-                    The dock stays fixed so you never lose your place on mobile.
+                    Expand the dock for the full keyboard and AI. Tap minimize for more canvas.
                   </p>
                 </div>
               )}
@@ -575,55 +628,149 @@ export function StudioPage() {
       </div>
 
       <aside
-        className="fixed bottom-0 left-0 right-0 z-40 flex h-[clamp(18.5rem,52dvh,28rem)] flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-28px_80px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
-        style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))' }}
-        aria-label="Clothing selection keyboard"
+        className={`fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-28px_80px_rgba(0,0,0,0.75)] backdrop-blur-2xl ${
+          dockMinimized ? 'max-h-[5.5rem]' : `h-[clamp(18.5rem,52dvh,28rem)]`
+        }`}
+        style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))' }}
+        aria-label="Studio keyboard and AI"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
 
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-lg flex-col lg:max-w-xl">
-          <div className="flex shrink-0 justify-center py-2">
-            <span className="h-1 w-12 rounded-full bg-zinc-600" aria-hidden />
-          </div>
-
-          <div className="flex shrink-0 items-end justify-between border-b border-white/5 px-3 pb-2">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-500">Keyboard</p>
-              <p className="text-sm font-semibold text-zinc-100">{categoryLabel(cat)}</p>
+        <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col lg:max-w-xl">
+          {/* Title bar — always visible; minimize / expand */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-2 py-2">
+            <div className="flex flex-1 items-center gap-2">
+              <span className="h-1 w-10 shrink-0 rounded-full bg-zinc-600" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Studio dock</p>
+                <p className="truncate text-xs font-semibold text-zinc-200">
+                  {dockMinimized ? 'Keyboard hidden' : categoryLabel(cat)}
+                </p>
+              </div>
             </div>
-            <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-medium text-zinc-400">
-              {cat === 'texte' ? 'Pro' : `${gridItems.length} options`}
-            </span>
+            <button
+              type="button"
+              onClick={() => setDockMinimized((v) => !v)}
+              className="touch-manipulation shrink-0 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-200 hover:bg-white/10"
+            >
+              {dockMinimized ? 'Expand' : 'Minimize'}
+            </button>
           </div>
 
-          <div className="shrink-0 border-b border-white/5 bg-black/20 px-2 py-2">
-            <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
-              {CATEGORIES.map((c) => {
-                const on = cat === c.id
-                return (
+          {!dockMinimized && (
+            <>
+              {/* AI + chat — same container as keyboard */}
+              <div className="shrink-0 border-b border-white/5 bg-black/30 px-2 py-2">
+                <div className="mb-2 flex gap-1">
                   <button
-                    key={c.id}
                     type="button"
-                    onClick={() => setCat(c.id)}
-                    className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-2 py-1.5 transition active:scale-[0.97] ${
-                      on
-                        ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(232,121,249,0.25)]'
-                        : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-200'
+                    onClick={() => setChatMode('design')}
+                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold uppercase tracking-wide ${
+                      chatMode === 'design'
+                        ? 'bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white'
+                        : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    <span className="scale-90 [&>svg]:text-current">
-                      <CategoryTabIcon cat={c.id} />
-                    </span>
-                    <span className="max-w-[4rem] truncate text-[8px] font-bold uppercase tracking-wide">{c.label}</span>
+                    Refine design
                   </button>
-                )
-              })}
-            </div>
-          </div>
+                  <button
+                    type="button"
+                    onClick={() => setChatMode('help')}
+                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold uppercase tracking-wide ${
+                      chatMode === 'help' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Help
+                  </button>
+                </div>
+                {chatMode === 'design' && (
+                  <div className="kbd-scroll mb-2 flex gap-1 overflow-x-auto pb-0.5">
+                    {DESIGN_SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setChatInput(s)}
+                        className="shrink-0 rounded-full border border-white/10 bg-zinc-900/80 px-2.5 py-1 text-[9px] font-medium text-zinc-400 hover:border-fuchsia-500/40 hover:text-white"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="kbd-scroll mb-2 max-h-[4.5rem] space-y-1 overflow-y-auto text-[10px] leading-snug">
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-lg px-2 py-1 ${
+                        msg.role === 'user' ? 'ml-4 bg-zinc-800 text-zinc-200' : 'mr-2 bg-zinc-900/90 text-zinc-400'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  ))}
+                  {chatLoading && <p className="text-[9px] text-fuchsia-400/90">Thinking…</p>}
+                </div>
+                <div className="flex gap-1.5">
+                  <input
+                    className="min-h-9 flex-1 rounded-lg border border-white/10 bg-black/50 px-2 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-fuchsia-500/50"
+                    placeholder={chatMode === 'design' ? 'Refine the outfit prompt…' : 'Ask a question…'}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void sendDockChat()
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={chatLoading}
+                    onClick={() => void sendDockChat()}
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-[10px] font-bold text-black disabled:opacity-50"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
 
-          <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-1">
-            {keysGrid}
-          </div>
+              <div className="flex shrink-0 items-end justify-between border-b border-white/5 px-3 py-1.5">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-500">Keyboard</p>
+                  <p className="text-sm font-semibold text-zinc-100">{categoryLabel(cat)}</p>
+                </div>
+                <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-medium text-zinc-400">
+                  {cat === 'texte' ? 'Pro' : `${gridItems.length} options`}
+                </span>
+              </div>
+
+              <div className="shrink-0 border-b border-white/5 bg-black/20 px-2 py-1.5">
+                <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
+                  {CATEGORIES.map((c) => {
+                    const on = cat === c.id
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCat(c.id)}
+                        className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-2 py-1.5 transition active:scale-[0.97] ${
+                          on
+                            ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(232,121,249,0.25)]'
+                            : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="scale-90 [&>svg]:text-current">
+                          <CategoryTabIcon cat={c.id} />
+                        </span>
+                        <span className="max-w-[4rem] truncate text-[8px] font-bold uppercase tracking-wide">
+                          {c.label}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-1">{keysGrid}</div>
+            </>
+          )}
         </div>
       </aside>
     </div>

@@ -1,4 +1,4 @@
-import { CHAT_API, IMAGE_PROMPT_QUALITY_SUFFIX } from './constants'
+import { CHAT_API_PATH, IMAGE_PROMPT_QUALITY_SUFFIX } from './constants'
 import { resolveImageApiUrl } from './imageApiUrl'
 
 /** Accept URLs, data URLs, blob URLs, or raw base64 payloads from JSON fields */
@@ -125,7 +125,7 @@ export async function generateImage(prompt: string): Promise<string> {
 }
 
 export async function sendChatMessage(prompt: string): Promise<string> {
-  const response = await fetch(CHAT_API, {
+  const response = await fetch(CHAT_API_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ prompt }),

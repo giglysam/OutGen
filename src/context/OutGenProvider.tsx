@@ -36,8 +36,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const [generateProgress, setGenerateProgress] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [authOpen, setAuthOpen] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
-  const [chatMode, setChatMode] = useState<'help' | 'design'>('help')
   const [marketingDraft, setMarketingDraft] = useState<string | null>(null)
   const [guestUsed, setGuestUsed] = useState(() => getGuestGenerationCount())
 
@@ -237,10 +235,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       dismissToast,
       authOpen,
       setAuthOpen,
-      chatOpen,
-      setChatOpen,
-      chatMode,
-      setChatMode,
       signIn,
       signUp,
       signOut,
@@ -267,8 +261,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       toasts,
       dismissToast,
       authOpen,
-      chatOpen,
-      chatMode,
       marketingDraft,
       canUseVideo,
       canUseMarketing,

@@ -1,6 +1,7 @@
 export const GUEST_GENERATION_LIMIT = 5
 
-export const CHAT_API = 'https://chat-z.created.app/api/chat'
+/** Same-origin proxy in dev (Vite) and prod (Vercel) — forwards to chat-z. */
+export const CHAT_API_PATH = '/api/chat'
 
 /** Appended to every image positivePrompt for stronger fidelity (Simple Generator). */
 export const IMAGE_PROMPT_QUALITY_SUFFIX =

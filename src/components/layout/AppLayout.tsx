@@ -1,7 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useOutGen } from '../../hooks/useOutGen'
 import { AuthModal } from '../auth/AuthModal'
-import { ChatPanel } from '../chat/ChatPanel'
 import { ToastStack } from '../ui/ToastStack'
 
 const tabs = [
@@ -26,8 +25,7 @@ function tabClassName(isActive: boolean, compact?: boolean) {
 }
 
 export function AppLayout() {
-  const { user, guestUsed, guestLimit, setAuthOpen, signOut, setChatOpen, generating, generateProgress, setChatMode } =
-    useOutGen()
+  const { user, guestUsed, guestLimit, setAuthOpen, signOut, generating, generateProgress } = useOutGen()
 
   return (
     <div className="flex min-h-dvh flex-col bg-[radial-gradient(120%_80%_at_50%_-10%,rgba(168,85,247,0.12),transparent_55%),radial-gradient(90%_60%_at_100%_0%,rgba(59,130,246,0.08),transparent_50%),#060607] text-zinc-100">
@@ -60,66 +58,43 @@ export function AppLayout() {
             </nav>
 
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {generating && (
-              <span className="hidden max-w-[160px] truncate text-[10px] text-zinc-500 lg:inline">
-                {generateProgress}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setChatMode('design')
-                setChatOpen(true)
-              }}
-              className="touch-manipulation rounded-xl border border-fuchsia-500/35 bg-fuchsia-500/10 px-2.5 py-2 text-[10px] font-bold uppercase tracking-wide text-fuchsia-100 shadow-[0_0_24px_rgba(217,70,239,0.15)] sm:px-3 sm:text-xs"
-            >
-              AI design
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setChatMode('help')
-                setChatOpen(true)
-              }}
-              className="touch-manipulation hidden rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 sm:inline sm:px-3 sm:text-xs"
-            >
-              Help
-            </button>
-            {user ? (
-              <div className="flex items-center gap-1.5">
-                <span className="hidden text-right text-[10px] text-zinc-500 sm:block">
-                  <span className="block font-medium text-zinc-300">{user.name}</span>
-                  <span className="uppercase">{user.plan}</span>
+              {generating && (
+                <span className="hidden max-w-[160px] truncate text-[10px] text-zinc-500 lg:inline">
+                  {generateProgress}
                 </span>
-                <button
-                  type="button"
-                  onClick={signOut}
-                  className="touch-manipulation rounded-xl border border-white/10 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wide hover:bg-white/5 sm:px-3 sm:text-xs"
-                >
-                  Out
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-end gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => setAuthOpen(true)}
-                  className="touch-manipulation rounded-xl bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-black shadow-[0_0_28px_rgba(255,255,255,0.12)] sm:text-xs"
-                >
-                  Sign in
-                </button>
-                <span className="text-[9px] text-zinc-500">
-                  Guest {guestUsed}/{guestLimit}
-                </span>
-              </div>
-            )}
+              )}
+              {user ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="hidden text-right text-[10px] text-zinc-500 sm:block">
+                    <span className="block font-medium text-zinc-300">{user.name}</span>
+                    <span className="uppercase">{user.plan}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={signOut}
+                    className="touch-manipulation rounded-xl border border-white/10 px-2.5 py-2 text-[10px] font-semibold uppercase tracking-wide hover:bg-white/5 sm:px-3 sm:text-xs"
+                  >
+                    Out
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-end gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setAuthOpen(true)}
+                    className="touch-manipulation rounded-xl bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-black shadow-[0_0_28px_rgba(255,255,255,0.12)] sm:text-xs"
+                  >
+                    Sign in
+                  </button>
+                  <span className="text-[9px] text-zinc-500">
+                    Guest {guestUsed}/{guestLimit}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
-          <nav
-            className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5 lg:hidden"
-            aria-label="Main navigation"
-          >
+          <nav className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5 lg:hidden" aria-label="Main navigation">
             {tabs.map((tab) => (
               <NavLink
                 key={tab.to}
@@ -145,7 +120,6 @@ export function AppLayout() {
       </main>
 
       <AuthModal />
-      <ChatPanel />
       <ToastStack />
     </div>
   )
