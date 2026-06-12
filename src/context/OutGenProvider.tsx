@@ -90,7 +90,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const [marketingDraft, setMarketingDraft] = useState<string | null>(null)
   const [guestUsed, setGuestUsed] = useState(() => getGuestGenerationCount())
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const ensuredDesignForUser = useRef<string | null>(null)
 
   const refreshGuest = useCallback(() => {
     setGuestUsed(getGuestGenerationCount())
@@ -182,7 +181,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         setDesignId(null)
         setDesigns([])
         setOnboardingOpen(false)
-        ensuredDesignForUser.current = null
       }
     })
 
@@ -194,11 +192,20 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   }, [user, refreshDesigns])
 
   const saveCurrentDesign = useCallback(async () => {
-    if (!user || !designId) return
+    if (!user) {
+      setAuthOpen(true)
+      return
+    }
     setSavingDesign(true)
     try {
+      const wasNew = !designId
+      let id = designId
+      if (!id) {
+        id = await createDesign(user.id, designTitle.trim() || 'Untitled design')
+        setDesignId(id)
+      }
       await saveDesign({
-        id: designId,
+        id,
         title: designTitle.trim() || 'Untitled design',
         selection,
         logoDescription,
@@ -206,6 +213,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         generated,
       })
       await refreshDesigns()
+      pushToast('success', wasNew ? 'Outfit saved.' : 'Outfit updated.')
     } catch (e) {
       pushToast('error', e instanceof Error ? e.message : 'Save failed.')
     } finally {
@@ -222,18 +230,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     refreshDesigns,
     pushToast,
   ])
-
-  // Auto-save when logged in
-  useEffect(() => {
-    if (!user || !designId) return
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      void saveCurrentDesign()
-    }, 2500)
-    return () => {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    }
-  }, [user, designId, selection, logoDescription, userPrompt, generated, designTitle, saveCurrentDesign])
 
   const loadDesignById = useCallback(
     async (id: string) => {
@@ -260,49 +256,23 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     [pushToast],
   )
 
-  const startNewDesign = useCallback(async () => {
+  const startNewDesign = useCallback(() => {
     if (!user) {
       setAuthOpen(true)
       return
     }
-    try {
-      setLivePreviewPaused(false)
-      ensuredDesignForUser.current = user.id
-      const id = await createDesign(user.id, 'New design')
-      setDesignId(id)
-      setDesignTitle('New design')
-      setSelection(DEFAULT_OUTFIT_SELECTION)
-      setLogoDescription('')
-      setUserPrompt('')
-      setGenerated((prev) => {
-        for (const u of Object.values(prev)) revokeGeneratedUrl(u)
-        return {}
-      })
-      await refreshDesigns()
-      pushToast('success', 'Blank design started.')
-    } catch (e) {
-      pushToast('error', e instanceof Error ? e.message : 'Could not create design.')
-    }
-  }, [user, refreshDesigns, pushToast])
-
-  useEffect(() => {
-    if (!user || !authReady || designId) return
-    if (ensuredDesignForUser.current === user.id) return
-    const pendingId = new URLSearchParams(window.location.search).get('design')
-    if (pendingId) return
-    ensuredDesignForUser.current = user.id
-    void (async () => {
-      try {
-        const id = await createDesign(user.id, 'New design')
-        setDesignId(id)
-        setDesignTitle('New design')
-        await refreshDesigns()
-      } catch (e) {
-        pushToast('error', e instanceof Error ? e.message : 'Could not create design.')
-        ensuredDesignForUser.current = null
-      }
-    })()
-  }, [user, authReady, designId, refreshDesigns, pushToast])
+    setLivePreviewPaused(false)
+    setDesignId(null)
+    setDesignTitle('Untitled design')
+    setSelection(DEFAULT_OUTFIT_SELECTION)
+    setLogoDescription('')
+    setUserPrompt('')
+    setGenerated((prev) => {
+      for (const u of Object.values(prev)) revokeGeneratedUrl(u)
+      return {}
+    })
+    pushToast('info', 'New outfit started — tap Save outfit when you want to keep it.')
+  }, [user, pushToast])
 
   const ensureCanGenerate = useCallback((): boolean => {
     if (user) return true
@@ -342,14 +312,13 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         await runAngle(angle, chargeFirstOnly && i === 0)
       }
       pushToast('success', 'Outfit generated — all views ready.')
-      if (user) await saveCurrentDesign()
     } catch (e) {
       pushToast('error', e instanceof Error ? e.message : 'Image generation failed.')
     } finally {
       setGenerating(false)
       setGenerateProgress(null)
     }
-  }, [ensureCanGenerate, selection.meshIds.length, runAngle, user, pushToast, saveCurrentDesign])
+  }, [ensureCanGenerate, selection.meshIds.length, runAngle, user, pushToast])
 
   const regenerateAngle = useCallback(
     async (angle: ViewAngle) => {
@@ -359,7 +328,6 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       try {
         await runAngle(angle, !user)
         pushToast('success', 'View updated.')
-        if (user) await saveCurrentDesign()
       } catch (e) {
         pushToast('error', e instanceof Error ? e.message : 'Regeneration failed.')
       } finally {
@@ -367,7 +335,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         setGenerateProgress(null)
       }
     },
-    [ensureCanGenerate, runAngle, user, pushToast, saveCurrentDesign],
+    [ensureCanGenerate, runAngle, user, pushToast],
   )
 
   const canUseVideo = user ? user.plan === 'premium' || user.plan === 'enterprise' : false

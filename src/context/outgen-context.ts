@@ -22,7 +22,7 @@ export type OutGenContextValue = {
   savingDesign: boolean
   saveCurrentDesign: () => Promise<void>
   loadDesignById: (id: string) => Promise<DesignRow | null>
-  startNewDesign: () => Promise<void>
+  startNewDesign: () => void
   refreshDesigns: () => Promise<void>
   refreshProfile: () => Promise<void>
   updateProfileFields: (patch: ProfileUpdate) => Promise<void>

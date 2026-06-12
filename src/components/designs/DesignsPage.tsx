@@ -133,7 +133,7 @@ export function DesignsPage() {
         <h1 className="text-xl font-bold text-white">My outfits</h1>
         <Link
           to="/"
-          onClick={() => void startNewDesign()}
+          onClick={() => startNewDesign()}
           className="rounded-xl border-2 border-white bg-white px-4 py-2 text-sm font-bold text-black"
         >
           New outfit

@@ -184,6 +184,7 @@ export function StudioPage() {
     generated,
     patchGenerated,
     savingDesign,
+    saveCurrentDesign,
     livePreviewPaused,
   } = useOutGen()
 
@@ -585,7 +586,11 @@ export function StudioPage() {
             aria-label="Outfit name"
           />
           <p className="text-xs text-zinc-500">
-            {savingDesign ? 'Saving to cloud…' : 'Synced — open on any device when signed in'}
+            {savingDesign
+              ? 'Saving…'
+              : designId
+                ? 'Saved — tap Save outfit to update'
+                : 'Not saved yet — tap Save outfit to keep this'}
           </p>
         </div>
       )}
@@ -634,6 +639,17 @@ export function StudioPage() {
       >
         {generating ? 'Please wait…' : 'Make my outfit'}
       </button>
+
+      {user && (
+        <button
+          type="button"
+          disabled={savingDesign || selection.meshIds.length === 0}
+          onClick={() => void saveCurrentDesign()}
+          className="w-full rounded-2xl border-2 border-violet-500 bg-violet-600 py-4 text-base font-bold text-white disabled:opacity-40"
+        >
+          {savingDesign ? 'Saving…' : 'Save outfit'}
+        </button>
+      )}
 
       {!dockOpen ? (
         <button
