@@ -1,7 +1,7 @@
-import { getSupabaseAdmin, verifyUserToken } from './lib/supabaseAdmin.mjs'
-import { clientIp, lookupIp } from './lib/ipCheck.mjs'
+import { getSupabaseAdmin, verifyUserToken } from '../supabaseAdmin.mjs'
+import { clientIp, lookupIp } from '../ipCheck.mjs'
 
-export default async function handler(req, res) {
+export async function handleRecordSignup(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return

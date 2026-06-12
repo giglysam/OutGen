@@ -1,9 +1,9 @@
-import { sendEmail, ownerEmail } from './lib/resend.mjs'
-import { verifyUserToken } from './lib/supabaseAdmin.mjs'
+import { sendEmail, ownerEmail } from '../resend.mjs'
+import { verifyUserToken } from '../supabaseAdmin.mjs'
 
 const WHATSAPP_DISPLAY = '+961 71 831 770'
 
-export default async function handler(req, res) {
+export async function handleNotifyPurchase(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
@@ -36,7 +36,6 @@ export default async function handler(req, res) {
       <p>Confirm payment in WhatsApp, then add credits in the admin dashboard.</p>
     `
 
-    // Owner-only email (Resend test mode only allows your verified inbox)
     await sendEmail({
       to: ownerEmail(),
       subject: `💳 Payment request: ${userName} — ${detail}`,

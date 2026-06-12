@@ -1,5 +1,5 @@
-import { getSupabaseAdmin } from '../lib/supabaseAdmin.mjs'
-import { verifyAdmin, toCsv } from '../lib/adminAuth.mjs'
+import { getSupabaseAdmin } from '../supabaseAdmin.mjs'
+import { verifyAdmin, toCsv } from '../adminAuth.mjs'
 
 function dayKey(iso) {
   return iso ? iso.slice(0, 10) : ''
@@ -20,7 +20,7 @@ function bucketByDay(rows, dateField, days = 14) {
   return Object.entries(out).map(([date, count]) => ({ date, count }))
 }
 
-export default async function handler(req, res) {
+export async function handleAdminCrm(req, res) {
   if (!verifyAdmin(req, res)) return
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       const creditsSpent = txRows.filter((t) => t.delta < 0).reduce((s, t) => s + Math.abs(t.delta), 0)
       const creditsGranted = txRows.filter((t) => t.delta > 0).reduce((s, t) => s + t.delta, 0)
 
-      const payload = {
+      res.status(200).json({
         totals: {
           users: users.length,
           designs: designRows.length,
@@ -87,9 +87,7 @@ export default async function handler(req, res) {
         signupsByDay: bucketByDay(users, 'created_at'),
         designsByDay: bucketByDay(designRows, 'created_at'),
         ordersByDay: bucketByDay(orderRows, 'created_at'),
-      }
-
-      res.status(200).json(payload)
+      })
       return
     }
 
@@ -128,10 +126,8 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from('designs')
         .select(
-          `
-          id, title, thumbnail_url, logo_description, created_at, updated_at,
-          profiles ( email, display_name, city, country )
-        `,
+          `id, title, thumbnail_url, logo_description, created_at, updated_at,
+          profiles ( email, display_name, city, country )`,
         )
         .order('created_at', { ascending: false })
         .limit(limit)
@@ -186,12 +182,7 @@ export default async function handler(req, res) {
     if (view === 'transactions') {
       const { data, error } = await supabase
         .from('credit_transactions')
-        .select(
-          `
-          id, delta, reason, created_at,
-          profiles ( email, display_name )
-        `,
-        )
+        .select(`id, delta, reason, created_at, profiles ( email, display_name )`)
         .order('created_at', { ascending: false })
         .limit(limit)
       if (error) throw new Error(error.message)

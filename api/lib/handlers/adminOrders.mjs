@@ -1,7 +1,7 @@
-import { getSupabaseAdmin } from '../lib/supabaseAdmin.mjs'
-import { verifyAdmin, toCsv } from '../lib/adminAuth.mjs'
+import { getSupabaseAdmin } from '../supabaseAdmin.mjs'
+import { verifyAdmin, toCsv } from '../adminAuth.mjs'
 
-export default async function handler(req, res) {
+export async function handleAdminOrders(req, res) {
   if (!verifyAdmin(req, res)) return
 
   if (req.method === 'GET') {

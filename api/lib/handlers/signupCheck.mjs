@@ -1,7 +1,7 @@
-import { getSupabaseAdmin } from './lib/supabaseAdmin.mjs'
-import { clientIp, lookupIp, MAX_ACCOUNTS_PER_IP } from './lib/ipCheck.mjs'
+import { getSupabaseAdmin } from '../supabaseAdmin.mjs'
+import { clientIp, lookupIp, MAX_ACCOUNTS_PER_IP } from '../ipCheck.mjs'
 
-export default async function handler(req, res) {
+export async function handleSignupCheck(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return

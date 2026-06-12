@@ -1,5 +1,12 @@
 {
   "rewrites": [
+    { "source": "/api/admin/orders", "destination": "/api/admin?path=orders" },
+    { "source": "/api/admin/crm", "destination": "/api/admin?path=crm" },
+    { "source": "/api/admin/credits", "destination": "/api/admin?path=credits" },
+    { "source": "/api/notify-print-order", "destination": "/api/notify?type=print-order" },
+    { "source": "/api/notify-purchase", "destination": "/api/notify?type=purchase" },
+    { "source": "/api/signup-check", "destination": "/api/signup?action=check" },
+    { "source": "/api/record-signup", "destination": "/api/signup?action=record" },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
@@ -15,19 +22,13 @@
     "api/setup-db.js": {
       "maxDuration": 60
     },
-    "api/notify-print-order.js": {
+    "api/admin.js": {
       "maxDuration": 30
     },
-    "api/notify-purchase.js": {
+    "api/notify.js": {
       "maxDuration": 30
     },
-    "api/admin/orders.js": {
-      "maxDuration": 30
-    },
-    "api/signup-check.js": {
-      "maxDuration": 30
-    },
-    "api/record-signup.js": {
+    "api/signup.js": {
       "maxDuration": 30
     }
   }

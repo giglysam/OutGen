@@ -1,7 +1,7 @@
-import { sendEmail, ownerEmail } from './lib/resend.mjs'
-import { verifyUserToken } from './lib/supabaseAdmin.mjs'
+import { sendEmail, ownerEmail } from '../resend.mjs'
+import { verifyUserToken } from '../supabaseAdmin.mjs'
 
-export default async function handler(req, res) {
+export async function handleNotifyPrintOrder(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
