@@ -156,8 +156,15 @@ export function AccountPage() {
       )}
 
       <Link
-        to="/print"
+        to="/orders"
         className="mt-6 flex w-full items-center justify-center rounded-2xl border border-zinc-700 py-4 text-base font-semibold text-white"
+      >
+        Track my prints →
+      </Link>
+
+      <Link
+        to="/print"
+        className="mt-3 flex w-full items-center justify-center rounded-2xl border border-zinc-700 py-4 text-base font-semibold text-white"
       >
         Order a print →
       </Link>

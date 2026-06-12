@@ -81,7 +81,10 @@ export function PrintWizardPage() {
       <div className="mx-auto max-w-lg px-5 py-16 text-center">
         <h1 className="text-2xl font-bold text-white">Order sent</h1>
         <p className="mt-3 text-zinc-400">About {PRINT_ETA_DAYS} days until it ships to you.</p>
-        <Link to="/designs" className="mt-8 inline-block rounded-2xl border-2 border-white bg-white px-8 py-4 font-bold text-zinc-950">
+        <Link to="/orders" className="mt-8 inline-block w-full max-w-xs rounded-2xl border-2 border-violet-500 bg-violet-600 px-8 py-4 font-bold text-white">
+          Track my order
+        </Link>
+        <Link to="/designs" className="mt-3 inline-block text-sm text-zinc-400 underline">
           Back to my outfits
         </Link>
       </div>
