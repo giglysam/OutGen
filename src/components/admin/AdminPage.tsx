@@ -89,7 +89,7 @@ export function AdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 pb-28 pt-8">
+    <div className="mx-auto max-w-2xl px-5 pb-4 pt-8">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-white">Orders</h1>

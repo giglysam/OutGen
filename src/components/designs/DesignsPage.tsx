@@ -34,7 +34,7 @@ export function DesignsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 pb-28 pt-6">
+    <div className="mx-auto max-w-lg px-4 pb-4 pt-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-white">My outfits</h1>
         <Link

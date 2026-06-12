@@ -152,7 +152,7 @@ export function PrintWizardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 pb-32 pt-6">
+    <div className="mx-auto max-w-lg px-4 pb-4 pt-6">
       <p className="text-sm text-violet-400">Step {step} of 3</p>
       <h1 className="mt-1 text-2xl font-bold text-white">
         {step === 1 && 'Pick your outfit'}
@@ -299,15 +299,15 @@ export function PrintWizardPage() {
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 border-t border-zinc-800 bg-[#060607] p-4"
-        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        className="sticky z-40 -mx-4 mt-6 border-t border-zinc-800 bg-[#060607]/95 px-4 py-4 backdrop-blur-xl"
+        style={{ bottom: 'var(--app-nav-height)' }}
       >
-        <div className="mx-auto flex max-w-lg gap-2">
+        <div className="flex gap-2">
           {step > 1 && (
             <button
               type="button"
               onClick={() => setStep((s) => (s - 1) as Step)}
-              className="rounded-xl border-2 border-zinc-600 px-5 py-3 font-bold text-white"
+              className="shrink-0 rounded-xl border-2 border-zinc-600 px-5 py-3 font-bold text-white"
             >
               Back
             </button>
@@ -316,7 +316,7 @@ export function PrintWizardPage() {
             type="button"
             disabled={busy || (step === 1 && designs.length === 0)}
             onClick={() => void handleContinue()}
-            className="flex-1 rounded-xl border-2 border-violet-500 bg-violet-600 py-3 font-bold text-white disabled:opacity-50"
+            className="min-w-0 flex-1 rounded-xl border-2 border-violet-500 bg-violet-600 py-3 font-bold text-white disabled:opacity-50"
           >
             {busy ? 'Sending…' : step === 3 ? 'Send my order' : 'Continue'}
           </button>

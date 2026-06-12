@@ -12,6 +12,11 @@
 }
 
 @layer base {
+  :root {
+    /* Bottom tab bar height incl. safe area — keeps page actions above the nav */
+    --app-nav-height: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
   html {
     @apply antialiased;
     color-scheme: dark;

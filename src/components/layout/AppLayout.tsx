@@ -61,28 +61,31 @@ export function AppLayout() {
         )}
       </header>
 
-      <main className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col pb-2">
+      <main
+        className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col"
+        style={{ paddingBottom: 'var(--app-nav-height)' }}
+      >
         <Outlet />
       </main>
 
       <nav
-        className="sticky bottom-0 z-50 border-t border-white/10 bg-[#060607]/98 backdrop-blur-xl"
-        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#060607]/98 backdrop-blur-xl"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         aria-label="Main"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-4 gap-1 px-2 py-2">
+        <div className="mx-auto grid h-[4.5rem] max-w-lg grid-cols-4 px-1">
           {mobileTabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center rounded-xl py-3 text-xs font-bold transition ${
+                `flex min-w-0 flex-col items-center justify-center rounded-xl px-1 text-center text-[11px] font-bold leading-tight transition sm:text-xs ${
                   isActive ? 'bg-violet-600 text-white' : 'text-zinc-500'
                 }`
               }
             >
-              {tab.label}
+              <span className="truncate">{tab.label}</span>
             </NavLink>
           ))}
         </div>

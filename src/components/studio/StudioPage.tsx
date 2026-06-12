@@ -546,7 +546,7 @@ export function StudioPage() {
   )
 
   return (
-    <div className="flex flex-col gap-3 px-4 pb-4 pt-2">
+    <div className="flex flex-col gap-3 px-4 pb-2 pt-2">
       {user && (
         <p className="text-center text-xs text-zinc-500">
           {savingDesign ? 'Saving to cloud…' : 'Synced — open on any device when signed in'}
