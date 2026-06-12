@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useSearchParams } from 'react-router-dom'
 import {
   COLLAR_ITEMS,
   COLOR_ITEMS,
@@ -15,6 +15,8 @@ import {
 import { useOutGen } from '../../hooks/useOutGen'
 import type { PromptItem } from '../../types'
 import { buildFullPrompt, buildGarmentDescription } from '../../lib/promptBuilder'
+import { normalizeSelection } from '../../lib/normalizeSelection'
+import { selectionChoiceLabels } from '../../lib/selectionLabels'
 import { generateImage, refineCreativeNotesWithLlm, sendChatMessage } from '../../lib/api'
 import { COLOR_SWATCH } from '../../lib/colorSwatches'
 import {
@@ -160,8 +162,15 @@ export function StudioPage() {
   const [chatLoading, setChatLoading] = useState(false)
   const liveGen = useRef(0)
 
+  const [searchParams] = useSearchParams()
+  const designFromUrl = searchParams.get('design')
+  const loadingDesignRef = useRef<string | null>(null)
+
   const {
     user,
+    designId,
+    designTitle,
+    setDesignTitle,
     selection,
     setSelection,
     logoDescription,
@@ -169,11 +178,13 @@ export function StudioPage() {
     userPrompt,
     setUserPrompt,
     applyRefinedNotes,
+    loadDesignById,
     generateOutfitMultiView,
     generating,
     generated,
     patchGenerated,
     savingDesign,
+    livePreviewPaused,
   } = useOutGen()
 
   const preview = generated.front
@@ -194,6 +205,20 @@ export function StudioPage() {
     resetChatIntro(chatMode)
   }, [chatMode, resetChatIntro])
 
+  useEffect(() => {
+    if (!designFromUrl || !user) return
+    if (designId === designFromUrl || loadingDesignRef.current === designFromUrl) return
+    loadingDesignRef.current = designFromUrl
+    void loadDesignById(designFromUrl).then((row) => {
+      if (!row) loadingDesignRef.current = null
+      else if (normalizeSelection(row.selection).meshIds.length > 0) {
+        setDockOpen(true)
+        setDockTab('choices')
+        setCat('pieces')
+      }
+    })
+  }, [designFromUrl, user, designId, loadDesignById])
+
   const filteredMeshItems = useMemo(() => {
     if (meshFilter === 'all') return MESH_ITEMS
     const map: Record<MeshFilter, string | undefined> = {
@@ -209,6 +234,7 @@ export function StudioPage() {
 
   useEffect(() => {
     if (generating) return
+    if (livePreviewPaused && generated.front) return
     if (selection.meshIds.length === 0) return
 
     const id = ++liveGen.current
@@ -229,7 +255,7 @@ export function StudioPage() {
     }, LIVE_DEBOUNCE_MS)
 
     return () => window.clearTimeout(t)
-  }, [selection, logoDescription, userPrompt, generating, patchGenerated])
+  }, [selection, logoDescription, userPrompt, generating, patchGenerated, livePreviewPaused, generated.front])
 
   async function sendDockChat() {
     const q = chatInput.trim()
@@ -545,12 +571,36 @@ export function StudioPage() {
     </>
   )
 
+  const choiceLabels = useMemo(() => selectionChoiceLabels(selection), [selection])
+
   return (
     <div className="flex flex-col gap-3 px-4 pb-2 pt-2">
       {user && (
-        <p className="text-center text-xs text-zinc-500">
-          {savingDesign ? 'Saving to cloud…' : 'Synced — open on any device when signed in'}
-        </p>
+        <div className="space-y-1 text-center">
+          <input
+            type="text"
+            value={designTitle}
+            onChange={(e) => setDesignTitle(e.target.value)}
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-center text-sm font-semibold text-white"
+            aria-label="Outfit name"
+          />
+          <p className="text-xs text-zinc-500">
+            {savingDesign ? 'Saving to cloud…' : 'Synced — open on any device when signed in'}
+          </p>
+        </div>
+      )}
+
+      {choiceLabels.length > 0 && (
+        <div className="kbd-scroll flex gap-1.5 overflow-x-auto pb-0.5">
+          {choiceLabels.map((label) => (
+            <span
+              key={label}
+              className="shrink-0 rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold text-violet-200"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
       )}
 
       <div className="relative mx-auto w-full max-w-sm">

@@ -56,13 +56,27 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const [selection, setSelectionState] = useState<OutfitSelection>(DEFAULT_OUTFIT_SELECTION)
 
   const setSelection = useCallback((value: SetStateAction<OutfitSelection>) => {
+    setLivePreviewPaused(false)
     setSelectionState((prev) => {
       const next = typeof value === 'function' ? value(prev) : value
       return normalizeSelection(next)
     })
   }, [])
-  const [logoDescription, setLogoDescription] = useState('')
-  const [userPrompt, setUserPrompt] = useState('')
+  const [logoDescription, setLogoDescriptionState] = useState('')
+  const [userPrompt, setUserPromptState] = useState('')
+  const [livePreviewPaused, setLivePreviewPaused] = useState(false)
+
+  const resumeLivePreview = useCallback(() => setLivePreviewPaused(false), [])
+
+  const setLogoDescription = useCallback((value: SetStateAction<string>) => {
+    setLivePreviewPaused(false)
+    setLogoDescriptionState(value)
+  }, [])
+
+  const setUserPrompt = useCallback((value: SetStateAction<string>) => {
+    setLivePreviewPaused(false)
+    setUserPromptState(value)
+  }, [])
   const [designId, setDesignId] = useState<string | null>(null)
   const [designTitle, setDesignTitle] = useState('Untitled design')
   const [designs, setDesigns] = useState<DesignSummary[]>([])
@@ -223,20 +237,24 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
 
   const loadDesignById = useCallback(
     async (id: string) => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
       try {
         const row = await fetchDesign(id)
+        setLivePreviewPaused(true)
         setDesignId(row.id)
         setDesignTitle(row.title)
-        setSelection(normalizeSelection(row.selection))
-        setLogoDescription(row.logo_description ?? '')
-        setUserPrompt(row.user_prompt ?? '')
+        setSelectionState(normalizeSelection(row.selection))
+        setLogoDescriptionState(row.logo_description ?? '')
+        setUserPromptState(row.user_prompt ?? '')
         setGenerated((prev) => {
           for (const u of Object.values(prev)) revokeGeneratedUrl(u)
           return row.generated_views ?? {}
         })
-        pushToast('success', 'Design loaded.')
+        pushToast('success', 'Outfit loaded with your picks.')
+        return row
       } catch (e) {
         pushToast('error', e instanceof Error ? e.message : 'Could not load design.')
+        return null
       }
     },
     [pushToast],
@@ -248,6 +266,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
+      setLivePreviewPaused(false)
       ensuredDesignForUser.current = user.id
       const id = await createDesign(user.id, 'New design')
       setDesignId(id)
@@ -269,6 +288,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !authReady || designId) return
     if (ensuredDesignForUser.current === user.id) return
+    const pendingId = new URLSearchParams(window.location.search).get('design')
+    if (pendingId) return
     ensuredDesignForUser.current = user.id
     void (async () => {
       try {
@@ -306,6 +327,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
 
   const generateOutfitMultiView = useCallback(async () => {
     if (!ensureCanGenerate()) return
+    setLivePreviewPaused(false)
     if (selection.meshIds.length === 0) {
       pushToast('error', 'Pick at least one garment.')
       return
@@ -552,6 +574,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       patchGenerated,
       generating,
       generateProgress,
+      livePreviewPaused,
+      resumeLivePreview,
       guestUsed,
       guestLimit: 5,
       toasts,
@@ -597,6 +621,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       patchGenerated,
       generating,
       generateProgress,
+      livePreviewPaused,
+      resumeLivePreview,
       guestUsed,
       toasts,
       dismissToast,

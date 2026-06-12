@@ -1,5 +1,5 @@
 import { createContext, type Dispatch, type SetStateAction } from 'react'
-import type { DesignSummary } from '../lib/designsApi'
+import type { DesignRow, DesignSummary } from '../lib/designsApi'
 import type { ProfileUpdate, UserProfile } from '../lib/profileApi'
 import type { GeneratedViews, OutfitSelection, ToastMessage, UserSession, ViewAngle } from '../types'
 import type { PlanId } from '../lib/constants'
@@ -21,7 +21,7 @@ export type OutGenContextValue = {
   designs: DesignSummary[]
   savingDesign: boolean
   saveCurrentDesign: () => Promise<void>
-  loadDesignById: (id: string) => Promise<void>
+  loadDesignById: (id: string) => Promise<DesignRow | null>
   startNewDesign: () => Promise<void>
   refreshDesigns: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -32,6 +32,8 @@ export type OutGenContextValue = {
   patchGenerated: (patch: Partial<GeneratedViews>) => void
   generating: boolean
   generateProgress: string | null
+  livePreviewPaused: boolean
+  resumeLivePreview: () => void
   guestUsed: number
   guestLimit: number
   toasts: ToastMessage[]

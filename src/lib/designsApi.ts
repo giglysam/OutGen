@@ -25,6 +25,10 @@ export type DesignSummary = {
   thumbnail_url: string | null
   print_product: PrintProductId
   updated_at: string
+  created_at: string
+  selection: OutfitSelection
+  logo_description: string
+  has_generated: boolean
 }
 
 /** Only persist a compressed front view — keeps saves small & cross-device reliable */
@@ -46,7 +50,7 @@ async function cloudViews(views: GeneratedViews): Promise<{
 export async function listDesigns(userId: string): Promise<DesignSummary[]> {
   const { data, error } = await getSupabase()
     .from('designs')
-    .select('id, title, thumbnail_url, updated_at, selection')
+    .select('id, title, thumbnail_url, updated_at, created_at, selection, logo_description, generated_views')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
 
@@ -58,14 +62,23 @@ export async function listDesigns(userId: string): Promise<DesignSummary[]> {
       title: string
       thumbnail_url: string | null
       updated_at: string
+      created_at: string
       selection?: OutfitSelection
+      logo_description?: string
+      generated_views?: GeneratedViews
     }
+    const selection = normalizeSelection(r.selection)
+    const views = r.generated_views ?? {}
     return {
       id: r.id,
       title: r.title,
       thumbnail_url: r.thumbnail_url,
       updated_at: r.updated_at,
-      print_product: inferPrintProduct(normalizeSelection(r.selection)),
+      created_at: r.created_at,
+      selection,
+      logo_description: r.logo_description ?? '',
+      has_generated: Boolean(r.thumbnail_url || views.front),
+      print_product: inferPrintProduct(selection),
     }
   })
 }
