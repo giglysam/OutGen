@@ -1,11 +1,12 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useOutGen } from '../../hooks/useOutGen'
 import { AuthModal } from '../auth/AuthModal'
+import { OnboardingModal } from '../onboarding/OnboardingModal'
 import { ToastStack } from '../ui/ToastStack'
 
 const mobileTabs = [
   { to: '/', label: 'Studio', end: true },
-  { to: '/designs', label: 'Designs', end: false },
+  { to: '/designs', label: 'Outfits', end: false },
   { to: '/print', label: 'Print', end: false },
   { to: '/account', label: 'Account', end: false },
 ] as const
@@ -92,6 +93,7 @@ export function AppLayout() {
       )}
 
       <AuthModal />
+      <OnboardingModal />
       <ToastStack />
     </div>
   )

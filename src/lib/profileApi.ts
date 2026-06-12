@@ -8,12 +8,17 @@ export type UserProfile = {
   country: string | null
   address_line: string | null
   maps_url: string | null
+  phone: string | null
   credits_balance: number
   subscription_active: boolean
+  onboarding_complete: boolean
 }
 
 export type ProfileUpdate = Partial<
-  Pick<UserProfile, 'display_name' | 'city' | 'country' | 'address_line' | 'maps_url'>
+  Pick<
+    UserProfile,
+    'display_name' | 'city' | 'country' | 'address_line' | 'maps_url' | 'phone' | 'onboarding_complete'
+  >
 >
 
 export async function fetchProfile(userId: string): Promise<UserProfile | null> {

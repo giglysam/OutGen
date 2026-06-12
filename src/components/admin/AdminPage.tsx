@@ -125,8 +125,8 @@ export function AdminPage() {
                     className="h-24 w-24 shrink-0 rounded-2xl object-cover"
                   />
                 ) : (
-                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-zinc-800 text-2xl">
-                    👕
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-zinc-800 text-xs text-zinc-500">
+                    No image
                   </div>
                 )}
                 <div className="min-w-0 flex-1">

@@ -23,6 +23,12 @@
     },
     "api/admin/orders.js": {
       "maxDuration": 30
+    },
+    "api/signup-check.js": {
+      "maxDuration": 30
+    },
+    "api/record-signup.js": {
+      "maxDuration": 30
     }
   }
 }

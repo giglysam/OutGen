@@ -9,11 +9,13 @@ import { OutGenContext, type OutGenContextValue } from './outgen-context'
 import { getSupabase } from '../lib/supabase'
 import {
   createDesign,
+  deleteDesign,
   fetchDesign,
   listDesigns,
   saveDesign,
   type DesignSummary,
 } from '../lib/designsApi'
+import { checkSignupAllowed, recordSignupMetadata } from '../lib/signupApi'
 import { fetchProfile, updateProfile, type ProfileUpdate, type UserProfile } from '../lib/profileApi'
 import { notifyPurchaseRequest } from '../lib/notifyApi'
 import { creditsPayMessage, subscriptionPayMessage, whatsAppPayUrl } from '../lib/whatsapp'
@@ -66,6 +68,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const [generateProgress, setGenerateProgress] = useState<string | null>(null)
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [authOpen, setAuthOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [marketingDraft, setMarketingDraft] = useState<string | null>(null)
   const [guestUsed, setGuestUsed] = useState(() => getGuestGenerationCount())
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -140,6 +143,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         email.split('@')[0] ||
         'Creator'
       setUser(sessionFromAuth(authUser.id, email, name, p?.subscription_active ?? false))
+      const needsOnboarding = p && !(p.onboarding_complete ?? Boolean(p.city && p.country))
+      setOnboardingOpen(Boolean(needsOnboarding))
     },
     [],
   )
@@ -158,6 +163,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         setDesignId(null)
         setDesigns([])
+        setOnboardingOpen(false)
         ensuredDesignForUser.current = null
       }
     })
@@ -395,14 +401,22 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (email: string, password: string, name: string) => {
+      const check = await checkSignupAllowed(email)
+      if (!check.allowed) {
+        throw new Error(check.reason || 'Sign up not allowed from this network.')
+      }
+
       const { error } = await getSupabase().auth.signUp({
         email,
         password,
         options: { data: { display_name: name } },
       })
       if (error) throw error
-      pushToast('success', 'Account created — you have 1 free print credit!')
+
+      await recordSignupMetadata()
+      pushToast('success', 'Account created — 1 free print credit!')
       setAuthOpen(false)
+      setOnboardingOpen(true)
     },
     [pushToast],
   )
@@ -436,6 +450,45 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       pushToast('success', 'Profile updated.')
     },
     [user, pushToast],
+  )
+
+  const completeOnboarding = useCallback(
+    async (patch: ProfileUpdate) => {
+      if (!user) throw new Error('Sign in required')
+      const p = await updateProfile(user.id, { ...patch, onboarding_complete: true })
+      setProfile(p)
+      if (p.display_name) {
+        setUser((u) => (u ? { ...u, name: p.display_name || u.name } : u))
+      }
+      setOnboardingOpen(false)
+      pushToast('success', 'Your account is ready.')
+    },
+    [user, pushToast],
+  )
+
+  const deleteDesignById = useCallback(
+    async (id: string) => {
+      try {
+        await deleteDesign(id)
+        if (designId === id) {
+          setDesignId(null)
+          setDesignTitle('Untitled design')
+          setSelection(defaultSelection)
+          setLogoDescription('')
+          setUserPrompt('')
+          setGenerated((prev) => {
+            for (const u of Object.values(prev)) revokeGeneratedUrl(u)
+            return {}
+          })
+        }
+        await refreshDesigns()
+        pushToast('success', 'Outfit deleted.')
+      } catch (e) {
+        pushToast('error', e instanceof Error ? e.message : 'Could not delete.')
+        throw e
+      }
+    },
+    [designId, refreshDesigns, pushToast],
   )
 
   const requestSubscription = useCallback(async () => {
@@ -501,6 +554,9 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       dismissToast,
       authOpen,
       setAuthOpen,
+      onboardingOpen,
+      completeOnboarding,
+      deleteDesignById,
       signIn,
       signUp,
       signOut,
@@ -541,6 +597,9 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       toasts,
       dismissToast,
       authOpen,
+      onboardingOpen,
+      completeOnboarding,
+      deleteDesignById,
       marketingDraft,
       canUseVideo,
       canUseMarketing,

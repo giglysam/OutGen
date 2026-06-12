@@ -38,6 +38,9 @@ export type OutGenContextValue = {
   dismissToast: (id: string) => void
   authOpen: boolean
   setAuthOpen: (v: boolean) => void
+  onboardingOpen: boolean
+  completeOnboarding: (fields: ProfileUpdate) => Promise<void>
+  deleteDesignById: (id: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>

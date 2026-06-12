@@ -42,13 +42,13 @@ export function AuthModal() {
         >
           ✕
         </button>
-        <h2 id="auth-title" className="font-display text-2xl font-bold text-white">
+        <h2 id="auth-title" className="text-2xl font-bold text-white">
           {mode === 'in' ? 'Sign in' : 'Create account'}
         </h2>
         <p className="mt-2 text-sm text-zinc-400">
           {mode === 'up'
-            ? 'Get 1 free print credit and save your designs in the cloud.'
-            : 'Continue where you left off.'}
+            ? 'One free shirt print included. VPN sign-ups are not allowed.'
+            : 'Open your saved outfits.'}
         </p>
 
         {error && (

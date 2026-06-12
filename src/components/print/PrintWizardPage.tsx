@@ -178,7 +178,7 @@ export function PrintWizardPage() {
                     {d.thumbnail_url ? (
                       <img src={d.thumbnail_url} alt="" className="h-16 w-16 rounded-2xl object-cover" />
                     ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 text-2xl">👕</div>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 text-[10px] text-zinc-500">No image</div>
                     )}
                     <span className="font-semibold text-white">{d.title}</span>
                   </button>
