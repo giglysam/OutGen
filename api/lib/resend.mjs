@@ -1,5 +1,6 @@
 /**
- * Resend email helper. Set RESEND_API_KEY in Vercel (replace re_xxxxxxxxx with your real key).
+ * Resend email helper. Set RESEND_API_KEY in Vercel.
+ * In Resend test mode, emails can only go to OWNER_EMAIL — never send to customers until domain is verified.
  */
 export async function sendEmail({ to, subject, html }) {
   const apiKey = process.env.RESEND_API_KEY
@@ -8,7 +9,15 @@ export async function sendEmail({ to, subject, html }) {
   }
 
   const from = process.env.RESEND_FROM || 'onboarding@resend.dev'
-  const recipients = Array.isArray(to) ? to : [to]
+  const owner = ownerEmail()
+  const recipients = (Array.isArray(to) ? to : [to]).map((r) => {
+    if (r !== owner) {
+      console.warn(`Resend: redirecting ${r} → owner inbox (${owner})`)
+      return owner
+    }
+    return r
+  })
+  const uniqueRecipients = [...new Set(recipients)]
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -16,7 +25,7 @@ export async function sendEmail({ to, subject, html }) {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from, to: recipients, subject, html }),
+    body: JSON.stringify({ from, to: uniqueRecipients, subject, html }),
   })
 
   if (!res.ok) {

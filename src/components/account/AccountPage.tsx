@@ -71,7 +71,7 @@ export function AccountPage() {
     setMsg(null)
     try {
       await requestSubscription()
-      setMsg('Email sent — finish payment on WhatsApp (+961 71 831 770). Credits added after confirmation.')
+      setMsg('Opening WhatsApp — send the message to complete payment (+961 71 831 770).')
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Could not start subscription')
     }
@@ -81,7 +81,7 @@ export function AccountPage() {
     setMsg(null)
     try {
       await requestCredits(1)
-      setMsg('Email sent — finish payment on WhatsApp (+961 71 831 770). Credits added after confirmation.')
+      setMsg('Opening WhatsApp — send the message to complete payment (+961 71 831 770).')
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Could not start purchase')
     }
@@ -100,7 +100,7 @@ export function AccountPage() {
           each). Prints from ${CREDIT_USD}–$100 by garment type.
         </p>
         <p className="mt-3 text-xs text-zinc-500">
-          Pay via WhatsApp +961 71 831 770. You&apos;ll get a confirmation email.
+          Tap below — WhatsApp opens with your order message ready to send to +961 71 831 770.
         </p>
         <div className="mt-5 flex flex-col gap-3">
           <button

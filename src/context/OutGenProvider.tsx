@@ -26,7 +26,7 @@ import {
 import { checkSignupAllowed, recordSignupMetadata } from '../lib/signupApi'
 import { fetchProfile, updateProfile, type ProfileUpdate, type UserProfile } from '../lib/profileApi'
 import { notifyPurchaseRequest } from '../lib/notifyApi'
-import { creditsPayMessage, subscriptionPayMessage, whatsAppPayUrl } from '../lib/whatsapp'
+import { creditsPayMessage, openWhatsApp, subscriptionPayMessage } from '../lib/whatsapp'
 import { DEFAULT_OUTFIT_SELECTION, normalizeSelection } from '../lib/normalizeSelection'
 
 let toastSeq = 0
@@ -519,30 +519,30 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
 
   const requestSubscription = useCallback(async () => {
     if (!user) throw new Error('Sign in required')
-    await notifyPurchaseRequest({
+    const message = subscriptionPayMessage(user.email, user.name)
+    void notifyPurchaseRequest({
       type: 'subscription',
       userEmail: user.email,
       userName: user.name,
+    }).catch(() => {
+      /* owner email is best-effort — WhatsApp is the main flow */
     })
-    const url = whatsAppPayUrl(subscriptionPayMessage(user.email, user.name))
-    window.open(url, '_blank', 'noopener,noreferrer')
-    pushToast('success', 'Check your email — complete payment on WhatsApp.')
-  }, [user, pushToast])
+    openWhatsApp(message)
+  }, [user])
 
   const requestCredits = useCallback(
     async (amount: number) => {
       if (!user) throw new Error('Sign in required')
-      await notifyPurchaseRequest({
+      const message = creditsPayMessage(user.email, user.name, amount)
+      void notifyPurchaseRequest({
         type: 'credits',
         creditAmount: amount,
         userEmail: user.email,
         userName: user.name,
-      })
-      const url = whatsAppPayUrl(creditsPayMessage(user.email, user.name, amount))
-      window.open(url, '_blank', 'noopener,noreferrer')
-      pushToast('success', 'Check your email — complete payment on WhatsApp.')
+      }).catch(() => {})
+      openWhatsApp(message)
     },
-    [user, pushToast],
+    [user],
   )
 
   const value = useMemo<OutGenContextValue>(
