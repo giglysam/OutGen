@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useOutGen } from '../../hooks/useOutGen'
-import type { PlanId } from '../../lib/constants'
-import { PLAN_LABELS } from '../../lib/constants'
 
 export function AuthModal() {
   const { authOpen, setAuthOpen, signIn, signUp } = useOutGen()
@@ -9,27 +7,36 @@ export function AuthModal() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const [plan, setPlan] = useState<PlanId>('classic')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (!authOpen) return null
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (mode === 'in') signIn(email, password)
-    else signUp(email, password, name, plan)
+    setError(null)
+    setBusy(true)
+    try {
+      if (mode === 'in') await signIn(email, password)
+      else await signUp(email, password, name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
-        className="relative w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-950 p-6 shadow-2xl"
+        className="relative w-full max-w-md rounded-t-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl sm:rounded-3xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-title"
       >
         <button
           type="button"
-          className="absolute right-4 top-4 text-zinc-500 hover:text-white"
+          className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-900 hover:text-white"
           onClick={() => setAuthOpen(false)}
           aria-label="Close"
         >
@@ -38,75 +45,79 @@ export function AuthModal() {
         <h2 id="auth-title" className="font-display text-2xl font-bold text-white">
           {mode === 'in' ? 'Sign in' : 'Create account'}
         </h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Mock auth — local storage only. Wire your provider (Clerk, Supabase, etc.) later.
+        <p className="mt-2 text-sm text-zinc-400">
+          {mode === 'up'
+            ? 'Get 1 free print credit and save your designs in the cloud.'
+            : 'Continue where you left off.'}
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+        {error && (
+          <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </p>
+        )}
+
+        <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4">
           {mode === 'up' && (
-            <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Display name
+            <label className="block">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Name</span>
               <input
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-white"
+                type="text"
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
+                className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-base text-white outline-none focus:border-violet-500"
+                placeholder="Alex"
               />
             </label>
           )}
-          <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Email
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Email</span>
             <input
-              required
               type="email"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-white"
+              required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-base text-white outline-none focus:border-violet-500"
+              placeholder="you@email.com"
             />
           </label>
-          <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-            Password
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Password</span>
             <input
-              required
               type="password"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-white"
+              required
+              minLength={6}
+              autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+              className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-base text-white outline-none focus:border-violet-500"
+              placeholder="••••••••"
             />
           </label>
-          {mode === 'up' && (
-            <label className="block text-left text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Starting plan (demo)
-              <select
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-white"
-                value={plan}
-                onChange={(e) => setPlan(e.target.value as PlanId)}
-              >
-                {(Object.keys(PLAN_LABELS) as PlanId[]).map((p) => (
-                  <option key={p} value={p}>
-                    {PLAN_LABELS[p]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <button
             type="submit"
-            className="mt-2 rounded-xl bg-white py-3 text-sm font-bold text-black hover:bg-zinc-200"
+            disabled={busy}
+            className="w-full rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
           >
-            {mode === 'in' ? 'Sign in' : 'Sign up'}
+            {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}
           </button>
         </form>
 
-        <button
-          type="button"
-          className="mt-4 w-full text-center text-sm text-zinc-500 hover:text-white"
-          onClick={() => setMode(mode === 'in' ? 'up' : 'in')}
-        >
-          {mode === 'in' ? 'No account yet? Sign up' : 'Already have an account? Sign in'}
-        </button>
+        <p className="mt-5 text-center text-sm text-zinc-500">
+          {mode === 'in' ? 'No account yet?' : 'Already have an account?'}{' '}
+          <button
+            type="button"
+            className="font-medium text-violet-400 hover:text-violet-300"
+            onClick={() => {
+              setMode(mode === 'in' ? 'up' : 'in')
+              setError(null)
+            }}
+          >
+            {mode === 'in' ? 'Sign up' : 'Sign in'}
+          </button>
+        </p>
       </div>
     </div>
   )

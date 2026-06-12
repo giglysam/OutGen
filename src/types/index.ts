@@ -23,10 +23,10 @@ export interface OutfitSelection {
 }
 
 export interface UserSession {
+  id: string
   email: string
   name: string
   plan: PlanId
-  createdAt: string
 }
 
 export type GeneratedViews = Partial<Record<ViewAngle, string>>

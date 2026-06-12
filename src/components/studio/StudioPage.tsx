@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
   COLLAR_ITEMS,
   COLOR_ITEMS,
@@ -34,7 +34,7 @@ const MESH_MAX = 4
 const LIVE_DEBOUNCE_MS = 1200
 
 /** Slim bar height for the collapsed tool (switch / expand). */
-const PANEL_SLIM = '3.25rem'
+const PANEL_SLIM = '3.75rem'
 
 type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 
@@ -180,6 +180,7 @@ export function StudioPage() {
   const liveGen = useRef(0)
 
   const {
+    user,
     selection,
     setSelection,
     logoDescription,
@@ -191,6 +192,10 @@ export function StudioPage() {
     generating,
     generated,
     patchGenerated,
+    designId,
+    designTitle,
+    setDesignTitle,
+    savingDesign,
   } = useOutGen()
 
   const preview = generated.front
@@ -509,7 +514,7 @@ export function StudioPage() {
               })}
             </div>
           )}
-          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 sm:gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2">
             {showClear && (
               <KeyTile
                 active={
@@ -582,20 +587,44 @@ export function StudioPage() {
 
   return (
     <div className="relative mx-auto w-full max-w-lg lg:max-w-xl">
-      <div className="px-1 pt-1 sm:px-2" style={{ paddingBottom: contentBottomPad }}>
-        <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-fuchsia-300/90">Outfit lab</p>
-          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Studio</h1>
-          <p className="mx-auto mt-2 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-            Build the look with the keyboard, preview updates automatically, then open{' '}
-            <NavLink to="/visualize" className="text-zinc-300 underline decoration-white/20 underline-offset-2">
-              Visualize
-            </NavLink>{' '}
-            for every angle.
-          </p>
+      <div className="px-4 pt-2" style={{ paddingBottom: contentBottomPad }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {user && designId ? (
+              <input
+                value={designTitle}
+                onChange={(e) => setDesignTitle(e.target.value)}
+                className="w-full truncate bg-transparent font-display text-xl font-bold text-white outline-none placeholder:text-zinc-600"
+                placeholder="Design name"
+              />
+            ) : (
+              <h1 className="font-display text-xl font-bold text-white">Studio</h1>
+            )}
+            {user && (
+              <p className="mt-1 text-xs text-zinc-500">
+                {savingDesign ? 'Saving…' : 'Saved to your account'}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Link
+              to="/designs"
+              className="rounded-xl border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300"
+            >
+              Designs
+            </Link>
+            {generated.front && user && designId && (
+              <Link
+                to={`/print?design=${designId}`}
+                className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Print
+              </Link>
+            )}
+          </div>
         </div>
 
-        <div className="relative mx-auto mt-5 w-[min(92vw,260px)]">
+        <div className="relative mx-auto mt-6 w-[min(88vw,280px)]">
           <div
             className="absolute -inset-[1px] rounded-[1.35rem] bg-gradient-to-br from-fuchsia-500/50 via-violet-500/30 to-cyan-400/25 opacity-90 blur-[1px]"
             aria-hidden
@@ -630,18 +659,23 @@ export function StudioPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-5 w-full max-w-xs space-y-2">
+        <div className="mx-auto mt-6 w-full max-w-xs space-y-3">
           <button
             type="button"
             disabled={generating || selection.meshIds.length === 0}
             onClick={() => void generateOutfitMultiView()}
-            className="w-full rounded-2xl bg-white py-3.5 text-sm font-bold uppercase tracking-wide text-black shadow-[0_0_36px_rgba(255,255,255,0.18)] transition hover:bg-zinc-100 active:scale-[0.99] disabled:opacity-40"
+            className="w-full rounded-2xl bg-white py-4 text-base font-bold text-black shadow-lg transition active:scale-[0.99] disabled:opacity-40"
           >
-            {generating ? 'Generating…' : 'Generate all views'}
+            {generating ? 'Generating…' : 'Generate outfit'}
           </button>
-          <p className="text-center text-[10px] leading-relaxed text-zinc-600">
-            High-quality fashion render · Fresh session per request on the server
-          </p>
+          {generated.front && (
+            <NavLink
+              to="/visualize"
+              className="flex w-full items-center justify-center rounded-2xl border border-zinc-700 py-3.5 text-sm font-semibold text-zinc-200"
+            >
+              All views
+            </NavLink>
+          )}
         </div>
       </div>
 

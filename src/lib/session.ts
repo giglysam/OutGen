@@ -24,10 +24,10 @@ export function clearSession(): void {
 export function mockSignUp(email: string, password: string, name: string, plan: PlanId): UserSession {
   void password
   const user: UserSession = {
+    id: `mock-${email}`,
     email,
     name: name || email.split('@')[0] || 'Creator',
     plan,
-    createdAt: new Date().toISOString(),
   }
   saveSession(user)
   return user
