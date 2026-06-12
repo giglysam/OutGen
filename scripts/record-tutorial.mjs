@@ -36,34 +36,67 @@ async function showStep(page, text) {
   await sleep(2200)
 }
 
-async function signIn(page) {
-  await showStep(page, '1. Sign in to your account')
-  const outBtn = page.getByRole('button', { name: 'Out' })
-  if (await outBtn.isVisible().catch(() => false)) return
+async function ensureSignedOut(page) {
+  const outBtn = page.getByRole('banner').getByRole('button', { name: 'Out', exact: true })
+  if (await outBtn.isVisible().catch(() => false)) {
+    await outBtn.click()
+    await sleep(2000)
+  }
+}
 
+async function typeSlow(locator, text, delay = 55) {
+  await locator.click()
+  await locator.fill('')
+  await locator.pressSequentially(text, { delay })
+}
+
+async function signIn(page) {
+  await ensureSignedOut(page)
+  await showStep(page, '1. Tap Sign in')
   await page.getByRole('banner').getByRole('button', { name: 'Sign in' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: 15000 })
-  await dialog.locator('input[type="email"]').fill(EMAIL)
-  await dialog.locator('input[type="password"]').fill(PASSWORD)
+  await sleep(1200)
+
+  await showStep(page, '2. Enter your email')
+  const emailInput = dialog.locator('input[type="email"]')
+  await typeSlow(emailInput, EMAIL)
+  await sleep(1500)
+
+  await showStep(page, '3. Enter your password')
+  const passInput = dialog.locator('input[type="password"]')
+  await typeSlow(passInput, PASSWORD)
+  await sleep(1500)
+
+  await showStep(page, '4. Tap Sign in')
   await dialog.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await sleep(3500)
+  await sleep(4500)
+
+  const authError = dialog.locator('text=/invalid|error|wrong|confirm/i')
+  if (await authError.isVisible().catch(() => false)) {
+    throw new Error('Sign-in failed — check DEMO_EMAIL and DEMO_PASSWORD')
+  }
 
   for (let i = 0; i < 3; i++) {
     const next = page.getByRole('button', { name: /Continue|Save and start/i })
     if (await next.isVisible().catch(() => false)) {
       await next.click()
-      await sleep(1500)
+      await sleep(1800)
     } else break
+  }
+
+  const outBtn = page.getByRole('banner').getByRole('button', { name: 'Out', exact: true })
+  if (!(await outBtn.isVisible().catch(() => false))) {
+    throw new Error('Sign-in did not complete — still guest')
   }
 }
 
 async function userFlow(page) {
-  await showStep(page, '2. Studio — design your outfit')
+  await showStep(page, '5. Studio — design your outfit')
   await page.goto(`${BASE}/`)
   await sleep(1500)
 
-  await showStep(page, '3. Tap Pick clothes — choose pieces')
+  await showStep(page, '6. Tap Pick clothes — choose pieces')
   await page.getByRole('button', { name: 'Pick clothes' }).click()
   await sleep(1200)
   const firstGarment = page.locator('button').filter({ hasText: /Tee|Hoodie|Shorts|Shirt/i }).first()
@@ -74,7 +107,7 @@ async function userFlow(page) {
   await page.getByRole('button', { name: 'Done' }).click()
   await sleep(1000)
 
-  await showStep(page, '4. Make my outfit — AI generates your look')
+  await showStep(page, '7. Make my outfit — AI generates your look')
   const makeBtn = page.getByRole('button', { name: 'Make my outfit' })
   if (await makeBtn.isEnabled().catch(() => false)) {
     await makeBtn.click()
@@ -83,26 +116,26 @@ async function userFlow(page) {
     await sleep(2000)
   }
 
-  await showStep(page, '5. Save outfit — keeps it in the cloud')
+  await showStep(page, '8. Save outfit — keeps it in the cloud')
   const saveBtn = page.getByRole('button', { name: 'Save outfit' })
   if (await saveBtn.isVisible().catch(() => false)) {
     await saveBtn.click()
     await sleep(2500)
   }
 
-  await showStep(page, '6. My outfits — your saved history')
+  await showStep(page, '9. My outfits — your saved history')
   await page.getByRole('link', { name: 'Outfits' }).click()
   await sleep(2500)
 
-  await showStep(page, '7. Order a print — ship to your home')
+  await showStep(page, '10. Order a print — ship to your home')
   await page.getByRole('link', { name: 'Print' }).click()
   await sleep(2500)
 
-  await showStep(page, '8. Track my prints — delivery status')
+  await showStep(page, '11. Track my prints — delivery status')
   await page.goto(`${BASE}/orders`)
   await sleep(2500)
 
-  await showStep(page, '9. Account — credits & home address')
+  await showStep(page, '12. Account — credits & home address')
   await page.getByRole('link', { name: 'Account' }).click()
   await sleep(2500)
 
@@ -117,6 +150,7 @@ async function recordViewport({ name, width, height }) {
   const browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({
     viewport: { width, height },
+    storageState: undefined,
     recordVideo: { dir: tmpDir, size: { width, height } },
     userAgent:
       name === 'mobile'
