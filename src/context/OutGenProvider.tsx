@@ -14,14 +14,9 @@ import {
   saveDesign,
   type DesignSummary,
 } from '../lib/designsApi'
-import {
-  activateSubscription,
-  fetchProfile,
-  purchaseCredits,
-  updateProfile,
-  type ProfileUpdate,
-  type UserProfile,
-} from '../lib/profileApi'
+import { fetchProfile, updateProfile, type ProfileUpdate, type UserProfile } from '../lib/profileApi'
+import { notifyPurchaseRequest } from '../lib/notifyApi'
+import { creditsPayMessage, subscriptionPayMessage, whatsAppPayUrl } from '../lib/whatsapp'
 
 const defaultSelection: OutfitSelection = {
   meshIds: [],
@@ -443,21 +438,32 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     [user, pushToast],
   )
 
-  const subscribeStudio = useCallback(async () => {
+  const requestSubscription = useCallback(async () => {
     if (!user) throw new Error('Sign in required')
-    const balance = await activateSubscription()
-    await refreshProfile()
-    pushToast('success', `Subscribed — ${balance} credits total.`)
-  }, [user, refreshProfile, pushToast])
+    await notifyPurchaseRequest({
+      type: 'subscription',
+      userEmail: user.email,
+      userName: user.name,
+    })
+    const url = whatsAppPayUrl(subscriptionPayMessage(user.email, user.name))
+    window.open(url, '_blank', 'noopener,noreferrer')
+    pushToast('success', 'Check your email — complete payment on WhatsApp.')
+  }, [user, pushToast])
 
-  const buyCredits = useCallback(
+  const requestCredits = useCallback(
     async (amount: number) => {
       if (!user) throw new Error('Sign in required')
-      await purchaseCredits(amount)
-      await refreshProfile()
-      pushToast('success', `${amount} credit${amount === 1 ? '' : 's'} added.`)
+      await notifyPurchaseRequest({
+        type: 'credits',
+        creditAmount: amount,
+        userEmail: user.email,
+        userName: user.name,
+      })
+      const url = whatsAppPayUrl(creditsPayMessage(user.email, user.name, amount))
+      window.open(url, '_blank', 'noopener,noreferrer')
+      pushToast('success', 'Check your email — complete payment on WhatsApp.')
     },
-    [user, refreshProfile, pushToast],
+    [user, pushToast],
   )
 
   const value = useMemo<OutGenContextValue>(
@@ -483,8 +489,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       refreshDesigns,
       refreshProfile,
       updateProfileFields,
-      subscribeStudio,
-      buyCredits,
+      requestSubscription,
+      requestCredits,
       generated,
       patchGenerated,
       generating,
@@ -525,8 +531,8 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       refreshDesigns,
       refreshProfile,
       updateProfileFields,
-      subscribeStudio,
-      buyCredits,
+      requestSubscription,
+      requestCredits,
       generated,
       patchGenerated,
       generating,

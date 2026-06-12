@@ -14,6 +14,15 @@
     },
     "api/setup-db.js": {
       "maxDuration": 60
+    },
+    "api/notify-print-order.js": {
+      "maxDuration": 30
+    },
+    "api/notify-purchase.js": {
+      "maxDuration": 30
+    },
+    "api/admin/orders.js": {
+      "maxDuration": 30
     }
   }
 }

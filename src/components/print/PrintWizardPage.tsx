@@ -11,11 +11,14 @@ import {
   totalPrintCredits,
 } from '../../lib/credits'
 import { placePrintOrder } from '../../lib/profileApi'
+import { notifyPrintOrder } from '../../lib/notifyApi'
 
 type Step = 1 | 2 | 3 | 4
 
 export function PrintWizardPage() {
   const { user, profile, designs, setAuthOpen, refreshProfile } = useOutGen()
+  const userName = user?.name ?? ''
+  const userEmail = user?.email ?? ''
   const [searchParams] = useSearchParams()
   const preselected = searchParams.get('design')
 
@@ -96,13 +99,32 @@ export function PrintWizardPage() {
     }
     setBusy(true)
     try {
-      await placePrintOrder({
+      const orderId = await placePrintOrder({
         designId: designId!,
         productType: product,
         quality,
         quantity,
         mapsUrl: mapsUrl.trim(),
       })
+      try {
+        await notifyPrintOrder({
+          orderId,
+          designTitle: selectedDesign?.title ?? 'Design',
+          thumbnailUrl: selectedDesign?.thumbnail_url ?? null,
+          productLabel: PRINT_PRODUCTS.find((p) => p.id === product)?.label ?? product,
+          qualityLabel: PRINT_QUALITIES.find((q) => q.id === quality)?.label ?? quality,
+          quantity,
+          creditsTotal: creditsNeeded,
+          mapsUrl: mapsUrl.trim(),
+          userName,
+          userEmail,
+          city: profile?.city,
+          country: profile?.country,
+          addressLine: profile?.address_line,
+        })
+      } catch {
+        /* order saved even if email fails */
+      }
       await refreshProfile()
       setDone(true)
     } catch (e) {

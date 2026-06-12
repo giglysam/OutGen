@@ -26,8 +26,8 @@ export type OutGenContextValue = {
   refreshDesigns: () => Promise<void>
   refreshProfile: () => Promise<void>
   updateProfileFields: (patch: ProfileUpdate) => Promise<void>
-  subscribeStudio: () => Promise<void>
-  buyCredits: (amount: number) => Promise<void>
+  requestSubscription: () => Promise<void>
+  requestCredits: (amount: number) => Promise<void>
   generated: GeneratedViews
   patchGenerated: (patch: Partial<GeneratedViews>) => void
   generating: boolean

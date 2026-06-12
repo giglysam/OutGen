@@ -8,7 +8,7 @@ import {
 } from '../../lib/credits'
 
 export function AccountPage() {
-  const { user, profile, setAuthOpen, updateProfileFields, subscribeStudio, buyCredits, refreshProfile } =
+  const { user, profile, setAuthOpen, updateProfileFields, requestSubscription, requestCredits, refreshProfile } =
     useOutGen()
 
   const [city, setCity] = useState('')
@@ -62,20 +62,20 @@ export function AccountPage() {
   async function handleSubscribe() {
     setMsg(null)
     try {
-      await subscribeStudio()
-      setMsg(`Studio plan active — ${SUBSCRIPTION_CREDITS_PER_MONTH} credits added.`)
+      await requestSubscription()
+      setMsg('Email sent — finish payment on WhatsApp (+961 71 831 770). Credits added after confirmation.')
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Could not subscribe')
+      setMsg(e instanceof Error ? e.message : 'Could not start subscription')
     }
   }
 
   async function handleBuyCredits() {
     setMsg(null)
     try {
-      await buyCredits(1)
-      setMsg('1 credit added.')
+      await requestCredits(1)
+      setMsg('Email sent — finish payment on WhatsApp (+961 71 831 770). Credits added after confirmation.')
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Could not buy credits')
+      setMsg(e instanceof Error ? e.message : 'Could not start purchase')
     }
   }
 
@@ -91,20 +91,23 @@ export function AccountPage() {
           Studio ${SUBSCRIPTION_PRICE_USD}/mo includes {SUBSCRIPTION_CREDITS_PER_MONTH} credits. Extra credits $
           {EXTRA_CREDIT_PRICE_USD} each.
         </p>
+        <p className="mt-3 text-xs text-zinc-500">
+          Pay via WhatsApp +961 71 831 770. You&apos;ll get a confirmation email.
+        </p>
         <div className="mt-5 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => void handleSubscribe()}
             className="w-full rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white"
           >
-            Subscribe — ${SUBSCRIPTION_PRICE_USD}/mo
+            Subscribe — ${SUBSCRIPTION_PRICE_USD}/mo via WhatsApp
           </button>
           <button
             type="button"
             onClick={() => void handleBuyCredits()}
             className="w-full rounded-2xl border border-zinc-600 py-4 text-base font-semibold text-white"
           >
-            Buy 1 credit — ${EXTRA_CREDIT_PRICE_USD}
+            Buy 1 credit — ${EXTRA_CREDIT_PRICE_USD} via WhatsApp
           </button>
         </div>
       </section>

@@ -14,3 +14,15 @@ curl -X POST https://your-app.vercel.app/api/setup-db \
 ```
 
 Never commit the service role key or database password.
+
+## Vercel environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Public anon key |
+| `RESEND_API_KEY` | Resend API key (`re_xxxxxxxxx`) |
+| `RESEND_FROM` | Sender address (e.g. `onboarding@resend.dev`) |
+| `OWNER_EMAIL` | Where print/payment alerts go |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin API only (server) |
+| `ADMIN_SECRET` | Password for `/admin` page |
