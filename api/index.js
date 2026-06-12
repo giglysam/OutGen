@@ -1,5 +1,5 @@
 /**
- * Single Vercel serverless function for all /api/* routes (Hobby plan limit).
+ * Single Vercel serverless function — all /api/* routed here via vercel.json rewrite.
  */
 import { handleAdminOrders } from '../server/vercel/handlers/adminOrders.mjs'
 import { handleAdminCrm } from '../server/vercel/handlers/adminCrm.mjs'
@@ -13,9 +13,22 @@ import { handleGenerateImage } from '../server/vercel/handlers/generateImage.mjs
 import { handleSetupDb } from '../server/vercel/handlers/setupDb.mjs'
 
 function routeKey(req) {
+  if (req.query?.route) {
+    return String(req.query.route).replace(/^\/+|\/+$/g, '')
+  }
+
   const raw = req.query?.path
-  const segs = Array.isArray(raw) ? raw : raw ? [String(raw)] : []
-  return segs.join('/')
+  if (raw) {
+    const segs = Array.isArray(raw) ? raw : [String(raw)]
+    return segs.join('/')
+  }
+
+  try {
+    const url = new URL(req.url || '/', 'http://localhost')
+    return url.pathname.replace(/^\/api\/?/, '').replace(/\/$/, '')
+  } catch {
+    return ''
+  }
 }
 
 export default async function handler(req, res) {
