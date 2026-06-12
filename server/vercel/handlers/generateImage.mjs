@@ -1,10 +1,6 @@
-import { fetchSimpleGeneratorImage } from '../server/simpleGenerator.mjs'
+import { fetchSimpleGeneratorImage } from '../../simpleGenerator.mjs'
 
-/**
- * Vercel Serverless — Simple Generator: fresh session per request (visit + POST + image fetch).
- * Body: { prompt: string } or { positivePrompt: string } — full English fashion prompt.
- */
-export default async function handler(req, res) {
+export async function handleGenerateImage(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return

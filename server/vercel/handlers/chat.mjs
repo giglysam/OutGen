@@ -1,10 +1,6 @@
-/**
- * Vercel Serverless — proxies POST to chat-z (avoids browser CORS).
- * Body: { "prompt": "..." }
- */
 const CHAT_UPSTREAM = 'https://chat-z.created.app/api/chat'
 
-export default async function handler(req, res) {
+export async function handleChat(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return

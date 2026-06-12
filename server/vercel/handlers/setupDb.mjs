@@ -1,7 +1,3 @@
-/**
- * One-time database bootstrap. Set SUPABASE_DB_PASSWORD and SETUP_SECRET in Vercel.
- * POST /api/setup-db with header x-setup-secret: <SETUP_SECRET>
- */
 import pg from 'pg'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -9,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-export default async function handler(req, res) {
+export async function handleSetupDb(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'POST only' })
     return
@@ -27,8 +23,8 @@ export default async function handler(req, res) {
     return
   }
 
-  const schemaPath = join(__dirname, '../supabase/COMPLETE_SCHEMA.sql')
-const sql = readFileSync(schemaPath, 'utf8')
+  const schemaPath = join(__dirname, '../../../supabase/COMPLETE_SCHEMA.sql')
+  const sql = readFileSync(schemaPath, 'utf8')
   const client = new pg.Client({
     host: process.env.SUPABASE_DB_HOST || 'aws-0-us-west-1.pooler.supabase.com',
     port: Number(process.env.SUPABASE_DB_PORT || 5432),
