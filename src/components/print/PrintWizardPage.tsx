@@ -53,8 +53,7 @@ export function PrintWizardPage() {
     void (async () => {
       try {
         const row = await fetchDesign(designId)
-        const p = row.print_product as PrintProductId | null
-        setProduct(p ?? inferPrintProduct(row.selection))
+        setProduct(row.print_product ?? inferPrintProduct(row.selection))
       } catch {
         if (selectedDesign?.print_product) setProduct(selectedDesign.print_product)
       }

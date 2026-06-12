@@ -3,6 +3,18 @@ import { inferPrintProduct } from './designCategory'
 import type { PrintProductId } from './credits'
 import { getSupabase } from './supabase'
 
+const emptySelection: OutfitSelection = {
+  meshIds: [],
+  fitId: null,
+  fabricId: null,
+  colorId: null,
+  collarId: null,
+  sleeveId: null,
+  detailIds: [],
+  patternId: null,
+  finishId: null,
+}
+
 export type DesignRow = {
   id: string
   user_id: string
@@ -12,17 +24,25 @@ export type DesignRow = {
   user_prompt: string
   generated_views: GeneratedViews
   thumbnail_url: string | null
-  print_product: PrintProductId | null
   created_at: string
   updated_at: string
+  /** Derived from selection — not a required DB column */
+  print_product: PrintProductId
 }
 
 export type DesignSummary = {
   id: string
   title: string
   thumbnail_url: string | null
-  print_product: PrintProductId | null
+  print_product: PrintProductId
   updated_at: string
+}
+
+function withPrintProduct<T extends { selection?: OutfitSelection | null }>(
+  row: T,
+): T & { print_product: PrintProductId } {
+  const selection = row.selection ?? emptySelection
+  return { ...row, print_product: inferPrintProduct(selection) }
 }
 
 async function persistableViews(views: GeneratedViews): Promise<GeneratedViews> {
@@ -53,18 +73,34 @@ async function persistableViews(views: GeneratedViews): Promise<GeneratedViews> 
 export async function listDesigns(userId: string): Promise<DesignSummary[]> {
   const { data, error } = await getSupabase()
     .from('designs')
-    .select('id, title, thumbnail_url, print_product, updated_at')
+    .select('id, title, thumbnail_url, updated_at, selection')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as DesignSummary[]
+
+  return (data ?? []).map((row) => {
+    const r = row as {
+      id: string
+      title: string
+      thumbnail_url: string | null
+      updated_at: string
+      selection?: OutfitSelection
+    }
+    return {
+      id: r.id,
+      title: r.title,
+      thumbnail_url: r.thumbnail_url,
+      updated_at: r.updated_at,
+      print_product: inferPrintProduct(r.selection ?? emptySelection),
+    }
+  })
 }
 
 export async function fetchDesign(id: string): Promise<DesignRow> {
   const { data, error } = await getSupabase().from('designs').select('*').eq('id', id).single()
   if (error) throw new Error(error.message)
-  return data as DesignRow
+  return withPrintProduct(data as DesignRow) as DesignRow
 }
 
 export async function createDesign(userId: string, title = 'Untitled design'): Promise<string> {
@@ -96,8 +132,6 @@ export async function saveDesign(params: {
   const views = await persistableViews(params.generated)
   const thumbnail = views.front ?? null
 
-  const printProduct = inferPrintProduct(params.selection)
-
   const { error } = await getSupabase()
     .from('designs')
     .update({
@@ -107,7 +141,6 @@ export async function saveDesign(params: {
       user_prompt: params.userPrompt,
       generated_views: views,
       thumbnail_url: thumbnail,
-      print_product: printProduct,
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.id)
