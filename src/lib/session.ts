@@ -24,10 +24,10 @@ export function clearSession(): void {
 export function mockSignUp(email: string, password: string, name: string, plan: PlanId): UserSession {
   void password
   const user: UserSession = {
+    id: `mock-${email}`,
     email,
-    name: name || email.split('@')[0] || 'Créateur',
+    name: name || email.split('@')[0] || 'Creator',
     plan,
-    createdAt: new Date().toISOString(),
   }
   saveSession(user)
   return user
@@ -36,5 +36,5 @@ export function mockSignUp(email: string, password: string, name: string, plan: 
 export function mockSignIn(email: string, _password: string): UserSession {
   const existing = loadSession()
   if (existing && existing.email === email) return existing
-  return mockSignUp(email, _password, email.split('@')[0] || 'Créateur', 'classic')
+  return mockSignUp(email, _password, email.split('@')[0] || 'Creator', 'classic')
 }

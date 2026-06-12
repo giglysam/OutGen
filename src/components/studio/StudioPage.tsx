@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, NavLink } from 'react-router-dom'
 import {
   COLLAR_ITEMS,
   COLOR_ITEMS,
@@ -14,8 +14,8 @@ import {
 } from '../../data/promptCatalog'
 import { useOutGen } from '../../hooks/useOutGen'
 import type { PromptItem } from '../../types'
-import { buildFullPrompt } from '../../lib/promptBuilder'
-import { generateImage } from '../../lib/api'
+import { buildFullPrompt, buildGarmentDescription } from '../../lib/promptBuilder'
+import { generateImage, refineCreativeNotesWithLlm, sendChatMessage } from '../../lib/api'
 import { COLOR_SWATCH } from '../../lib/colorSwatches'
 import {
   CategoryTabIcon,
@@ -33,19 +33,18 @@ import {
 const MESH_MAX = 4
 const LIVE_DEBOUNCE_MS = 1200
 
+/** Slim bar height for the collapsed tool (switch / expand). */
+const PANEL_SLIM = '3.75rem'
+
 type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 
 const MESH_FILTER_CHIPS: { id: MeshFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'tops', label: 'Tops' },
-  { id: 'outer', label: 'Outer' },
+  { id: 'outer', label: 'Outerwear' },
   { id: 'bottoms', label: 'Bottoms' },
-  { id: 'accessories', label: 'Gear' },
+  { id: 'accessories', label: 'Accessories' },
 ]
-
-/** Dock height + safe area — keep preview above fixed keyboard */
-const CONTENT_BOTTOM_SAFE =
-  'pb-[calc(clamp(18.5rem,52dvh,28rem)+env(safe-area-inset-bottom,0px))]'
 
 const CATEGORIES: { id: StudioCategory; label: string }[] = [
   { id: 'pieces', label: 'Pieces' },
@@ -66,6 +65,14 @@ const LOGO_CHIPS = [
   { label: 'Sleeve repeat', text: 'small repeat logo along outer left sleeve' },
   { label: '3D chrome', text: 'chrome 3D metallic logo badge on chest, subtle reflections' },
   { label: 'Embroidery', text: 'dense tonal embroidery crest on chest' },
+]
+
+const DESIGN_SUGGESTIONS = [
+  'Add oversized chest typography',
+  'Metallic foil logo on the hood',
+  'Neon piping on seams',
+  'Vintage cracked print on the back',
+  'Small embroidered arch logo',
 ]
 
 function KeyTile({
@@ -143,13 +150,13 @@ function categoryLabel(id: StudioCategory): string {
 
 function meshCategoryRank(c?: string): number {
   switch (c) {
-    case 'Hauts':
+    case 'Tops':
       return 0
     case 'Outerwear':
       return 1
-    case 'Bas':
+    case 'Bottoms':
       return 2
-    case 'Accessoires':
+    case 'Accessories':
       return 3
     default:
       return 9
@@ -160,33 +167,63 @@ export function StudioPage() {
   const [cat, setCat] = useState<StudioCategory>('pieces')
   const [meshFilter, setMeshFilter] = useState<MeshFilter>('all')
   const [liveBusy, setLiveBusy] = useState(false)
+  /** Which tool owns the large panel — the other is only a slim bar. */
+  const [studioPanel, setStudioPanel] = useState<'keyboard' | 'chat'>('keyboard')
+  /** When panel is keyboard: true = only slim bar (keyboard minimized). */
+  const [keyboardSlimOnly, setKeyboardSlimOnly] = useState(false)
+  /** When panel is chat: true = only slim bar (chat minimized). */
+  const [chatSlimOnly, setChatSlimOnly] = useState(true)
+  const [chatMode, setChatMode] = useState<'help' | 'design'>('design')
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([])
+  const [chatLoading, setChatLoading] = useState(false)
   const liveGen = useRef(0)
 
   const {
+    user,
     selection,
     setSelection,
     logoDescription,
     setLogoDescription,
     userPrompt,
     setUserPrompt,
+    applyRefinedNotes,
     generateOutfitMultiView,
     generating,
     generated,
     patchGenerated,
-    setChatOpen,
-    setChatMode,
+    designId,
+    designTitle,
+    setDesignTitle,
+    savingDesign,
   } = useOutGen()
 
   const preview = generated.front
+
+  const resetChatIntro = useCallback((mode: 'help' | 'design') => {
+    setChatMessages([
+      {
+        role: 'assistant',
+        text:
+          mode === 'design'
+            ? 'Describe changes (text, graphics, materials). I will refine your creative notes for the image model.'
+            : 'Ask about OutGen, plans, or the studio.',
+      },
+    ])
+  }, [])
+
+  useEffect(() => {
+    resetChatIntro(chatMode)
+  }, [chatMode, resetChatIntro])
 
   const filteredMeshItems = useMemo(() => {
     if (meshFilter === 'all') return MESH_ITEMS
     const map: Record<MeshFilter, string | undefined> = {
       all: undefined,
-      tops: 'Hauts',
+      tops: 'Tops',
       outer: 'Outerwear',
-      bottoms: 'Bas',
-      accessories: 'Accessoires',
+      bottoms: 'Bottoms',
+      accessories: 'Accessories',
     }
     const want = map[meshFilter]
     return MESH_ITEMS.filter((m) => m.category === want)
@@ -215,6 +252,40 @@ export function StudioPage() {
 
     return () => window.clearTimeout(t)
   }, [selection, logoDescription, userPrompt, generating, patchGenerated])
+
+  async function sendDockChat() {
+    const q = chatInput.trim()
+    if (!q || chatLoading) return
+    setChatInput('')
+    setChatMessages((m) => [...m, { role: 'user', text: q }])
+    setChatLoading(true)
+    try {
+      if (chatMode === 'design') {
+        const garmentSummary = buildGarmentDescription(selection)
+        const refined = await refineCreativeNotesWithLlm({
+          garmentSummary,
+          logoText: logoDescription,
+          currentNotes: userPrompt,
+          userInstruction: q,
+        })
+        applyRefinedNotes(refined)
+        setChatMessages((m) => [
+          ...m,
+          { role: 'assistant', text: `Updated creative notes:\n\n${refined}` },
+        ])
+      } else {
+        const reply = await sendChatMessage(
+          `Context: OutGen fashion AI studio (multi-view previews, guest trials, plans). Answer in English, concise. User question: ${q}`,
+        )
+        setChatMessages((m) => [...m, { role: 'assistant', text: reply }])
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Request failed.'
+      setChatMessages((m) => [...m, { role: 'assistant', text: msg }])
+    } finally {
+      setChatLoading(false)
+    }
+  }
 
   function toggleMesh(id: string) {
     setSelection((s) => {
@@ -333,6 +404,24 @@ export function StudioPage() {
   const gridItems = itemsForCategory(cat)
   const showClear = cat !== 'pieces' && cat !== 'details' && cat !== 'texte'
 
+  const expandedH = 'min(28rem, max(18.5rem, 52dvh))'
+  const keyboardBarH = studioPanel === 'keyboard' ? (keyboardSlimOnly ? PANEL_SLIM : expandedH) : PANEL_SLIM
+  const chatBarH = studioPanel === 'chat' ? (chatSlimOnly ? PANEL_SLIM : expandedH) : PANEL_SLIM
+  const contentBottomPad = `calc(${keyboardBarH} + ${chatBarH} + env(safe-area-inset-bottom, 0px))`
+
+  function showKeyboardFull() {
+    setStudioPanel('keyboard')
+    setKeyboardSlimOnly(false)
+    setChatSlimOnly(true)
+  }
+
+  function showChatFull() {
+    setStudioPanel('chat')
+    setChatSlimOnly(false)
+    setKeyboardSlimOnly(true)
+  }
+
+
   const keysGrid = (
     <>
       {cat === 'texte' ? (
@@ -370,33 +459,20 @@ export function StudioPage() {
             </div>
             <textarea
               className="mt-1.5 min-h-[88px] w-full resize-y rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none ring-0 placeholder:text-zinc-600 focus:border-violet-500/50"
-              placeholder="Vibe, graphics, trims, special effects — English works best for the model…"
+              placeholder="Mood, graphics, trims, effects — English works best for the model…"
               value={userPrompt}
               maxLength={900}
               onChange={(e) => setUserPrompt(e.target.value)}
             />
             <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-              Each image request uses a fresh server session to reduce rate limits. Tap{' '}
-              <span className="font-semibold text-fuchsia-300">Refine with AI</span> to let the LLM rewrite this field.
+              Each image uses a fresh server session. Switch to the <span className="font-semibold text-fuchsia-300">AI chat</span> panel below to refine notes.
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setChatMode('design')
-                  setChatOpen(true)
-                }}
-                className="rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-lg"
-              >
-                Refine with AI
-              </button>
-              <NavLink
-                to="/visualiser"
-                className="rounded-xl border border-white/15 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-300 hover:border-white/30 hover:text-white"
-              >
-                All views
-              </NavLink>
-            </div>
+            <NavLink
+              to="/visualize"
+              className="mt-2 inline-flex rounded-xl border border-white/15 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-300 hover:border-white/30 hover:text-white"
+            >
+              All views
+            </NavLink>
           </div>
 
           <div>
@@ -438,7 +514,7 @@ export function StudioPage() {
               })}
             </div>
           )}
-          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 sm:gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2">
             {showClear && (
               <KeyTile
                 active={
@@ -511,20 +587,44 @@ export function StudioPage() {
 
   return (
     <div className="relative mx-auto w-full max-w-lg lg:max-w-xl">
-      <div className={`px-1 pt-1 sm:px-2 ${CONTENT_BOTTOM_SAFE}`}>
-        <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-fuchsia-300/90">Outfit lab</p>
-          <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Studio</h1>
-          <p className="mx-auto mt-2 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-            Build the look with the keyboard, preview updates automatically, then open{' '}
-            <NavLink to="/visualiser" className="text-zinc-300 underline decoration-white/20 underline-offset-2">
-              Visualiser
-            </NavLink>{' '}
-            for every angle.
-          </p>
+      <div className="px-4 pt-2" style={{ paddingBottom: contentBottomPad }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {user && designId ? (
+              <input
+                value={designTitle}
+                onChange={(e) => setDesignTitle(e.target.value)}
+                className="w-full truncate bg-transparent font-display text-xl font-bold text-white outline-none placeholder:text-zinc-600"
+                placeholder="Design name"
+              />
+            ) : (
+              <h1 className="font-display text-xl font-bold text-white">Studio</h1>
+            )}
+            {user && (
+              <p className="mt-1 text-xs text-zinc-500">
+                {savingDesign ? 'Saving…' : 'Saved to your account'}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Link
+              to="/designs"
+              className="rounded-xl border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300"
+            >
+              Designs
+            </Link>
+            {generated.front && user && designId && (
+              <Link
+                to={`/print?design=${designId}`}
+                className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Print
+              </Link>
+            )}
+          </div>
         </div>
 
-        <div className="relative mx-auto mt-5 w-[min(92vw,260px)]">
+        <div className="relative mx-auto mt-6 w-[min(88vw,280px)]">
           <div
             className="absolute -inset-[1px] rounded-[1.35rem] bg-gradient-to-br from-fuchsia-500/50 via-violet-500/30 to-cyan-400/25 opacity-90 blur-[1px]"
             aria-hidden
@@ -545,7 +645,7 @@ export function StudioPage() {
                   </span>
                   <p className="text-sm font-medium text-zinc-300">Pick at least one garment</p>
                   <p className="text-[11px] leading-relaxed text-zinc-600">
-                    The dock stays fixed so you never lose your place on mobile.
+                    Use the keyboard panel for pieces and options, or switch to AI chat — only one expands at a time.
                   </p>
                 </div>
               )}
@@ -559,73 +659,248 @@ export function StudioPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-5 w-full max-w-xs space-y-2">
+        <div className="mx-auto mt-6 w-full max-w-xs space-y-3">
           <button
             type="button"
             disabled={generating || selection.meshIds.length === 0}
             onClick={() => void generateOutfitMultiView()}
-            className="w-full rounded-2xl bg-white py-3.5 text-sm font-bold uppercase tracking-wide text-black shadow-[0_0_36px_rgba(255,255,255,0.18)] transition hover:bg-zinc-100 active:scale-[0.99] disabled:opacity-40"
+            className="w-full rounded-2xl bg-white py-4 text-base font-bold text-black shadow-lg transition active:scale-[0.99] disabled:opacity-40"
           >
-            {generating ? 'Generating…' : 'Generate all views'}
+            {generating ? 'Generating…' : 'Generate outfit'}
           </button>
-          <p className="text-center text-[10px] leading-relaxed text-zinc-600">
-            High-quality fashion render · Fresh session per request on the server
-          </p>
+          {generated.front && (
+            <NavLink
+              to="/visualize"
+              className="flex w-full items-center justify-center rounded-2xl border border-zinc-700 py-3.5 text-sm font-semibold text-zinc-200"
+            >
+              All views
+            </NavLink>
+          )}
         </div>
       </div>
 
-      <aside
-        className="fixed bottom-0 left-0 right-0 z-40 flex h-[clamp(18.5rem,52dvh,28rem)] flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-28px_80px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
-        style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))' }}
-        aria-label="Clothing selection keyboard"
+      {/* Bottom: two separate containers — keyboard strip + chat strip; only one expands at a time */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t border-white/10 bg-[#070708]/95 shadow-[0_-20px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
+        style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-500/35 to-transparent" />
 
-        <div className="mx-auto flex h-full min-h-0 w-full max-w-lg flex-col lg:max-w-xl">
-          <div className="flex shrink-0 justify-center py-2">
-            <span className="h-1 w-12 rounded-full bg-zinc-600" aria-hidden />
-          </div>
-
-          <div className="flex shrink-0 items-end justify-between border-b border-white/5 px-3 pb-2">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-zinc-500">Keyboard</p>
-              <p className="text-sm font-semibold text-zinc-100">{categoryLabel(cat)}</p>
+        {/* ——— Keyboard container ——— */}
+        <section
+          className="mx-auto flex w-full max-w-lg flex-col border-b border-white/5 lg:max-w-xl"
+          style={
+            studioPanel === 'keyboard' && !keyboardSlimOnly
+              ? { height: `clamp(18.5rem, 52dvh, 28rem)` }
+              : { height: PANEL_SLIM }
+          }
+          aria-label="Clothing keyboard"
+        >
+          {studioPanel === 'keyboard' && !keyboardSlimOnly ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-2 py-1.5">
+                <span className="h-1 w-9 shrink-0 rounded-full bg-zinc-600" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Keyboard</p>
+                  <p className="truncate text-xs font-semibold text-zinc-100">{categoryLabel(cat)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => showChatFull()}
+                  className="touch-manipulation shrink-0 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-fuchsia-200"
+                >
+                  AI chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKeyboardSlimOnly(true)}
+                  className="touch-manipulation shrink-0 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+                >
+                  Minimize
+                </button>
+              </div>
+              <div className="flex shrink-0 items-end justify-between px-2 py-1">
+                <span className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-medium text-zinc-500">
+                  {cat === 'texte' ? 'Pro' : `${gridItems.length} opt`}
+                </span>
+              </div>
+              <div className="shrink-0 border-b border-white/5 bg-black/25 px-1.5 py-1">
+                <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
+                  {CATEGORIES.map((c) => {
+                    const on = cat === c.id
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCat(c.id)}
+                        className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-1.5 py-1 transition active:scale-[0.97] ${
+                          on
+                            ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white'
+                            : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="scale-[0.85] [&>svg]:text-current">
+                          <CategoryTabIcon cat={c.id} />
+                        </span>
+                        <span className="max-w-[3.25rem] truncate text-[7px] font-bold uppercase">{c.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-0.5">
+                {keysGrid}
+              </div>
             </div>
-            <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-medium text-zinc-400">
-              {cat === 'texte' ? 'Pro' : `${gridItems.length} options`}
-            </span>
-          </div>
+          ) : (
+            <div className="flex h-full items-center gap-2 px-2">
+              <span className="h-1 w-8 shrink-0 rounded-full bg-zinc-600" aria-hidden />
+              <span className="flex-1 truncate text-xs font-semibold text-zinc-300">Keyboard</span>
+              <button
+                type="button"
+                onClick={() => showChatFull()}
+                className="touch-manipulation shrink-0 rounded-lg border border-fuchsia-500/35 px-2 py-1 text-[9px] font-bold uppercase text-fuchsia-200"
+              >
+                AI chat
+              </button>
+              <button
+                type="button"
+                onClick={() => showKeyboardFull()}
+                className="touch-manipulation shrink-0 rounded-lg bg-white px-2.5 py-1 text-[9px] font-bold uppercase text-black"
+              >
+                Expand
+              </button>
+            </div>
+          )}
+        </section>
 
-          <div className="shrink-0 border-b border-white/5 bg-black/20 px-2 py-2">
-            <div className="kbd-scroll flex gap-1 overflow-x-auto pb-0.5">
-              {CATEGORIES.map((c) => {
-                const on = cat === c.id
-                return (
+        {/* ——— AI chat container (separate from keyboard) ——— */}
+        <section
+          className="mx-auto flex w-full max-w-lg flex-col border-t border-white/5 lg:max-w-xl"
+          style={
+            studioPanel === 'chat' && !chatSlimOnly
+              ? { height: `clamp(18.5rem, 52dvh, 28rem)` }
+              : { height: PANEL_SLIM }
+          }
+          aria-label="AI assistant chat"
+        >
+          {studioPanel === 'chat' && !chatSlimOnly ? (
+            <div className="flex min-h-0 flex-1 flex-col bg-black/25">
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/5 px-2 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-fuchsia-400/90">AI chat</p>
+                  <p className="truncate text-xs text-zinc-400">Refine notes or ask for help</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => showKeyboardFull()}
+                  className="touch-manipulation shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+                >
+                  Keyboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChatSlimOnly(true)}
+                  className="touch-manipulation shrink-0 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+                >
+                  Minimize
+                </button>
+              </div>
+              <div className="shrink-0 border-b border-white/5 px-2 py-1.5">
+                <div className="flex gap-1">
                   <button
-                    key={c.id}
                     type="button"
-                    onClick={() => setCat(c.id)}
-                    className={`touch-manipulation flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-2 py-1.5 transition active:scale-[0.97] ${
-                      on
-                        ? 'border-fuchsia-400/50 bg-gradient-to-b from-fuchsia-500/20 to-transparent text-white shadow-[inset_0_0_0_1px_rgba(232,121,249,0.25)]'
-                        : 'border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-200'
+                    onClick={() => setChatMode('design')}
+                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold uppercase tracking-wide ${
+                      chatMode === 'design'
+                        ? 'bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white'
+                        : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
-                    <span className="scale-90 [&>svg]:text-current">
-                      <CategoryTabIcon cat={c.id} />
-                    </span>
-                    <span className="max-w-[4rem] truncate text-[8px] font-bold uppercase tracking-wide">{c.label}</span>
+                    Refine design
                   </button>
-                )
-              })}
+                  <button
+                    type="button"
+                    onClick={() => setChatMode('help')}
+                    className={`flex-1 rounded-lg py-1.5 text-[10px] font-bold uppercase tracking-wide ${
+                      chatMode === 'help' ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Help
+                  </button>
+                </div>
+              </div>
+              {chatMode === 'design' && (
+                <div className="kbd-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-white/5 px-2 py-1">
+                  {DESIGN_SUGGESTIONS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setChatInput(s)}
+                      className="shrink-0 rounded-full border border-white/10 bg-zinc-900/80 px-2 py-0.5 text-[9px] font-medium text-zinc-400 hover:border-fuchsia-500/40 hover:text-white"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="kbd-scroll min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-1.5 text-[10px] leading-snug">
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-lg px-2 py-1 ${
+                      msg.role === 'user' ? 'ml-3 bg-zinc-800 text-zinc-200' : 'mr-1 bg-zinc-900/90 text-zinc-400'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                ))}
+                {chatLoading && <p className="text-[9px] text-fuchsia-400/90">Thinking…</p>}
+              </div>
+              <div className="shrink-0 border-t border-white/5 p-2">
+                <div className="flex gap-1.5">
+                  <input
+                    className="min-h-9 flex-1 rounded-lg border border-white/10 bg-black/60 px-2 py-1.5 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-fuchsia-500/50"
+                    placeholder={chatMode === 'design' ? 'Refine the outfit prompt…' : 'Ask a question…'}
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void sendDockChat()
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={chatLoading}
+                    onClick={() => void sendDockChat()}
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-[10px] font-bold text-black disabled:opacity-50"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 pt-1">
-            {keysGrid}
-          </div>
-        </div>
-      </aside>
+          ) : (
+            <div className="flex h-full items-center gap-2 px-2">
+              <span className="h-1 w-8 shrink-0 rounded-full bg-fuchsia-900/80" aria-hidden />
+              <span className="flex-1 truncate text-xs font-semibold text-fuchsia-200/90">AI chat</span>
+              <button
+                type="button"
+                onClick={() => showKeyboardFull()}
+                className="touch-manipulation shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[9px] font-bold uppercase text-zinc-300"
+              >
+                Keyboard
+              </button>
+              <button
+                type="button"
+                onClick={() => showChatFull()}
+                className="touch-manipulation shrink-0 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 px-2.5 py-1 text-[9px] font-bold uppercase text-white"
+              >
+                Expand
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

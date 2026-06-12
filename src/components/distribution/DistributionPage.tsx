@@ -10,35 +10,35 @@ const plans: {
 }[] = [
   {
     id: 'classic',
-    price: '15 € / mois',
+    price: '$15 / month',
     bullets: [
-      'Génération d’images illimitée (côté produit — quotas API à configurer).',
-      'Studio complet + visualisation multi-vues.',
-      'Stats tendances de base (module mock jusqu’à data réelle).',
-      'Marketplace : mise en ligne limitée (few SKUs / mois en prod).',
+      'Unlimited image generation on the product side — configure API quotas in production.',
+      'Full studio plus multi-view visualization.',
+      'Basic trend stats (mock module until real data).',
+      'Marketplace: limited listings (few SKUs / month in prod).',
     ],
   },
   {
     id: 'premium',
-    price: '45 € / mois',
+    price: '$45 / month',
     tag: 'Recommended',
     bullets: [
-      'Tout Classic.',
-      'Vidéos IA pour réseaux & site (pipeline à brancher).',
-      'Analyses avancées, kit marketing auto (légendes, bios — chat IA ici).',
-      'Marketplace illimitée + file d’influence (mock).',
-      'Support prioritaire.',
+      'Everything in Classic.',
+      'AI videos for social and site (pipeline to connect).',
+      'Advanced analytics, auto marketing kit (captions, bios — chat AI here).',
+      'Unlimited marketplace plus influencer queue (mock).',
+      'Priority support.',
     ],
   },
   {
     id: 'enterprise',
-    price: 'Sur mesure',
+    price: 'Custom',
     tag: 'Enterprise',
     bullets: [
-      'Tout Recommended.',
-      'Images + vidéos + animations marketing avancées (illimité côté offre).',
-      'Modèles IA dédiés, intégrations API, SLA.',
-      'Branding complet & animations export (mock → provider).',
+      'Everything in Recommended.',
+      'Images, videos, and advanced marketing animations (unlimited on paper).',
+      'Dedicated AI models, API integrations, SLA.',
+      'Full branding and export animations (mock to real provider).',
     ],
   },
 ]
@@ -61,8 +61,8 @@ export function DistributionPage() {
       <div>
         <h1 className="font-display text-3xl font-bold text-white">Distribution & plans</h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-          Compare les offres, simule un changement de plan (mock local), et prépare vidéos / kits marketing selon
-          ton tier.
+          Compare tiers, simulate a plan change (local mock), and prepare videos or marketing kits according to your
+          tier.
         </p>
       </div>
 
@@ -100,7 +100,7 @@ export function DistributionPage() {
                   onClick={() => updatePlan(p.id)}
                   className="mt-8 w-full rounded-xl border border-zinc-600 py-3 text-sm font-bold uppercase tracking-wide text-white hover:border-white disabled:cursor-default disabled:opacity-40"
                 >
-                  {active ? 'Plan actif' : 'Choisir (démo)'}
+                  {active ? 'Current plan' : 'Choose (demo)'}
                 </button>
               ) : (
                 <button
@@ -108,7 +108,7 @@ export function DistributionPage() {
                   onClick={() => setAuthOpen(true)}
                   className="mt-8 w-full rounded-xl bg-white py-3 text-sm font-bold uppercase tracking-wide text-black hover:bg-zinc-200"
                 >
-                  Connecte-toi pour assigner un plan
+                  Sign in to assign a plan
                 </button>
               )}
             </div>
@@ -118,9 +118,9 @@ export function DistributionPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Vidéo sociale</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Social video</h2>
           <p className="mt-2 text-sm text-zinc-500">
-            Recommended & Enterprise — mock de file d’attente. Branche ton moteur vidéo (Runway, etc.).
+            Recommended and Enterprise — mock queue. Connect your video engine (Runway, etc.).
           </p>
           <button
             type="button"
@@ -128,20 +128,20 @@ export function DistributionPage() {
             onClick={() => void generateSocialVideo()}
             className="mt-6 w-full rounded-xl bg-zinc-100 py-3 text-sm font-bold text-black hover:bg-white disabled:opacity-40"
           >
-            Générer une vidéo sociale
+            Generate social video
           </button>
           {!user && (
-            <p className="mt-2 text-xs text-amber-500/90">Connexion requise — puis plan Recommended+.</p>
+            <p className="mt-2 text-xs text-amber-500/90">Sign in required — then Recommended plan or higher.</p>
           )}
           {user && !canUseVideo && (
-            <p className="mt-2 text-xs text-amber-500/90">Passe au plan Recommended pour débloquer.</p>
+            <p className="mt-2 text-xs text-amber-500/90">Upgrade to Recommended to unlock.</p>
           )}
         </div>
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Kit marketing IA</h2>
+          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">AI marketing kit</h2>
           <p className="mt-2 text-sm text-zinc-500">
-            Enterprise — utilise l’API chat pour produire bio, légendes et hashtags à partir de ta tenue.
+            Enterprise — use the chat API to produce bios, captions, and hashtags from your outfit.
           </p>
           <button
             type="button"
@@ -149,10 +149,10 @@ export function DistributionPage() {
             onClick={() => void generateMarketingKit()}
             className="mt-6 w-full rounded-xl border border-white py-3 text-sm font-bold text-white hover:bg-white hover:text-black disabled:opacity-40"
           >
-            Générer le kit (chat IA)
+            Generate kit (chat AI)
           </button>
           {user && !canUseMarketing && (
-            <p className="mt-2 text-xs text-amber-500/90">Réservé au plan Enterprise.</p>
+            <p className="mt-2 text-xs text-amber-500/90">Enterprise plan only.</p>
           )}
           {marketingDraft && (
             <pre className="mt-4 max-h-64 overflow-auto rounded-xl bg-zinc-900 p-4 text-left text-xs text-zinc-300 whitespace-pre-wrap">
@@ -165,14 +165,14 @@ export function DistributionPage() {
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
         <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Marketplace (mock)</h2>
         <p className="mt-2 text-sm text-zinc-500">
-          Les listings, stocks et paiements iront dans la base (`schema.sql`). Ici : aperçu UX uniquement.
+          Listings, inventory, and payments will live in the database (`schema.sql`). This is UX preview only.
         </p>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {['Hoodie “Nebula”', 'Cargo “Orbit”', 'Cap “Signal”'].map((title) => (
             <div key={title} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
               <div className="aspect-[4/5] rounded-lg bg-zinc-800" />
               <p className="mt-3 text-sm font-semibold text-white">{title}</p>
-              <p className="text-xs text-zinc-500">Précommande · 89 €</p>
+              <p className="text-xs text-zinc-500">Pre-order · $89</p>
             </div>
           ))}
         </div>

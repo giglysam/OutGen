@@ -8,6 +8,12 @@
   "functions": {
     "api/generate-image.js": {
       "maxDuration": 60
+    },
+    "api/chat.js": {
+      "maxDuration": 60
+    },
+    "api/setup-db.js": {
+      "maxDuration": 60
     }
   }
 }
