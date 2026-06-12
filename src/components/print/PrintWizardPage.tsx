@@ -6,6 +6,7 @@ import {
   CREDIT_USD,
   EXTRA_CREDIT_PRICE_USD,
   PRINT_ETA_DAYS,
+  PRINT_PRODUCTS,
   PRINT_QUALITIES,
   productLabel,
   type PrintProductId,
@@ -180,6 +181,9 @@ export function PrintWizardPage() {
               designs.map((d) => {
                 const on = designId === d.id
                 const typeLabel = d.print_product ? productLabel(d.print_product) : 'Garment'
+                const baseCr = d.print_product
+                  ? PRINT_PRODUCTS.find((p) => p.id === d.print_product)?.baseCredits
+                  : 1
                 return (
                   <button
                     key={d.id}
@@ -198,7 +202,9 @@ export function PrintWizardPage() {
                     )}
                     <div>
                       <p className="font-semibold text-white">{d.title}</p>
-                      <p className="text-xs text-zinc-500">{typeLabel} — type set from your design</p>
+                      <p className="text-xs text-zinc-500">
+                        {typeLabel} · from {baseCr} credits (${(baseCr ?? 1) * CREDIT_USD})
+                      </p>
                     </div>
                   </button>
                 )

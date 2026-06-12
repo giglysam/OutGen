@@ -24,13 +24,13 @@ export const PRINT_PRODUCTS: {
   usdFrom: number
   description: string
 }[] = [
-  { id: 'tee', label: 'T-shirt', baseCredits: 1, usdFrom: 10, description: 'Tees & light tops' },
-  { id: 'shorts', label: 'Shorts', baseCredits: 1, usdFrom: 10, description: 'Shorts & skirts' },
-  { id: 'cap', label: 'Cap', baseCredits: 1, usdFrom: 10, description: 'Caps & beanies' },
-  { id: 'sweatshirt', label: 'Sweatshirt', baseCredits: 2, usdFrom: 20, description: 'Sweatshirts & quarter-zips' },
-  { id: 'pants', label: 'Pants', baseCredits: 3, usdFrom: 30, description: 'Jeans, cargos, joggers' },
-  { id: 'hoodie', label: 'Hoodie', baseCredits: 4, usdFrom: 40, description: 'Hoodies & zip-ups' },
-  { id: 'outerwear', label: 'Jacket / coat', baseCredits: 6, usdFrom: 60, description: 'Puffers, bombers, vests' },
+  { id: 'tee', label: 'T-shirt', baseCredits: 1, usdFrom: 10, description: 'Tees & light tops — $10' },
+  { id: 'shorts', label: 'Shorts', baseCredits: 1, usdFrom: 10, description: 'Shorts & skirts — $10' },
+  { id: 'cap', label: 'Cap', baseCredits: 1, usdFrom: 10, description: 'Caps & beanies — $10' },
+  { id: 'sweatshirt', label: 'Sweatshirt', baseCredits: 3, usdFrom: 30, description: 'Sweatshirts & quarter-zips — $30' },
+  { id: 'pants', label: 'Pants', baseCredits: 5, usdFrom: 50, description: 'Jeans, cargos, joggers — $50' },
+  { id: 'hoodie', label: 'Hoodie', baseCredits: 7, usdFrom: 70, description: 'Hoodies & zip-ups — $70' },
+  { id: 'outerwear', label: 'Jacket / coat', baseCredits: 10, usdFrom: 100, description: 'Puffers, bombers, vests — $100' },
 ]
 
 export const PRINT_QUALITIES: {
