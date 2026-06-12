@@ -8,6 +8,7 @@ import { AccountPage } from './components/account/AccountPage'
 import { VisualizePage } from './components/visualize/VisualizePage'
 import { AdminPage } from './components/admin/AdminPage'
 import { MyOrdersPage } from './components/orders/MyOrdersPage'
+import { HelpPage } from './components/help/HelpPage'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="print" element={<PrintWizardPage />} />
             <Route path="account" element={<AccountPage />} />
             <Route path="orders" element={<MyOrdersPage />} />
+            <Route path="help" element={<HelpPage />} />
             <Route path="admin" element={<AdminPage />} />
             <Route path="visualize" element={<VisualizePage />} />
             <Route path="visualiser" element={<Navigate to="/visualize" replace />} />

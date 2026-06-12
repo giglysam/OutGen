@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "db:migrate": "node scripts/apply-migration.mjs"
+    "db:migrate": "node scripts/apply-migration.mjs",
+    "record:tutorial": "node scripts/record-tutorial.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
@@ -28,6 +29,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "playwright": "^1.60.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
