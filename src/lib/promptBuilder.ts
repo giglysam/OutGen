@@ -13,6 +13,7 @@ import {
   findManyById,
 } from '../data/promptCatalog'
 import type { OutfitSelection, ViewAngle } from '../types'
+import { normalizeSelection } from './normalizeSelection'
 
 const ANGLE_PROMPTS: Record<ViewAngle, string> = {
   front:
@@ -30,7 +31,8 @@ const ANGLE_PROMPTS: Record<ViewAngle, string> = {
 }
 
 export function buildGarmentDescription(sel: OutfitSelection): string {
-  const meshes = findManyById(MESH_ITEMS, sel.meshIds)
+  const normalized = normalizeSelection(sel)
+  const meshes = findManyById(MESH_ITEMS, normalized.meshIds)
   const garment =
     meshes.length > 0
       ? `Outfit composed of: ${meshes.map((m) => m.prompt).join('; ')}.`
@@ -38,28 +40,28 @@ export function buildGarmentDescription(sel: OutfitSelection): string {
 
   const parts: string[] = [garment]
 
-  const fit = findById(FIT_ITEMS, sel.fitId)
+  const fit = findById(FIT_ITEMS, normalized.fitId)
   if (fit) parts.push(fit.prompt)
 
-  const fabric = findById(FABRIC_ITEMS, sel.fabricId)
+  const fabric = findById(FABRIC_ITEMS, normalized.fabricId)
   if (fabric) parts.push(fabric.prompt)
 
-  const color = findById(COLOR_ITEMS, sel.colorId)
+  const color = findById(COLOR_ITEMS, normalized.colorId)
   if (color) parts.push(color.prompt)
 
-  const collar = findById(COLLAR_ITEMS, sel.collarId)
+  const collar = findById(COLLAR_ITEMS, normalized.collarId)
   if (collar) parts.push(collar.prompt)
 
-  const sleeve = findById(SLEEVE_ITEMS, sel.sleeveId)
+  const sleeve = findById(SLEEVE_ITEMS, normalized.sleeveId)
   if (sleeve) parts.push(sleeve.prompt)
 
-  const details = findManyById(DETAIL_ITEMS, sel.detailIds)
+  const details = findManyById(DETAIL_ITEMS, normalized.detailIds)
   if (details.length) parts.push(details.map((d) => d.prompt).join(' '))
 
-  const pattern = findById(PATTERN_ITEMS, sel.patternId)
+  const pattern = findById(PATTERN_ITEMS, normalized.patternId)
   if (pattern) parts.push(pattern.prompt)
 
-  const finish = findById(FINISH_ITEMS, sel.finishId)
+  const finish = findById(FINISH_ITEMS, normalized.finishId)
   if (finish) parts.push(finish.prompt)
 
   return parts.join(' ')

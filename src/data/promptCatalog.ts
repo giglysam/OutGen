@@ -200,6 +200,6 @@ export function findById(list: PromptItem[], id: string | null): PromptItem | un
   return list.find((x) => x.id === id)
 }
 
-export function findManyById(list: PromptItem[], ids: string[]): PromptItem[] {
-  return ids.map((id) => list.find((x) => x.id === id)).filter(Boolean) as PromptItem[]
+export function findManyById(list: PromptItem[], ids?: string[] | null): PromptItem[] {
+  return (ids ?? []).map((id) => list.find((x) => x.id === id)).filter(Boolean) as PromptItem[]
 }

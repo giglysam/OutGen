@@ -1,6 +1,7 @@
 import { MESH_ITEMS } from '../data/promptCatalog'
 import type { OutfitSelection } from '../types'
 import type { PrintProductId } from './credits'
+import { normalizeSelection } from './normalizeSelection'
 
 const PRIORITY: Record<PrintProductId, number> = {
   outerwear: 7,
@@ -51,12 +52,13 @@ function classifyMeshId(meshId: string): PrintProductId {
 
 /** Primary garment type for printing — from outfit pieces picked in studio */
 export function inferPrintProduct(selection: OutfitSelection): PrintProductId {
-  if (!selection.meshIds.length) return 'tee'
+  const sel = normalizeSelection(selection)
+  if (!sel.meshIds.length) return 'tee'
 
   let best: PrintProductId = 'tee'
   let bestScore = 0
 
-  for (const meshId of selection.meshIds) {
+  for (const meshId of sel.meshIds) {
     const product = classifyMeshId(meshId)
     const score = PRIORITY[product] ?? 1
     if (score > bestScore) {
@@ -69,7 +71,8 @@ export function inferPrintProduct(selection: OutfitSelection): PrintProductId {
 }
 
 export function primaryGarmentLabel(selection: OutfitSelection): string {
-  if (!selection.meshIds.length) return 'T-shirt'
-  const first = MESH_ITEMS.find((m) => m.id === selection.meshIds[0])
+  const sel = normalizeSelection(selection)
+  if (!sel.meshIds.length) return 'T-shirt'
+  const first = MESH_ITEMS.find((m) => m.id === sel.meshIds[0])
   return first?.label ?? 'Garment'
 }

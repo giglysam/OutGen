@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
 import type { GeneratedViews, OutfitSelection, ToastMessage, UserSession, ViewAngle } from '../types'
 import { buildFullPrompt, VIEW_ORDER } from '../lib/promptBuilder'
 import { generateImage, sendChatMessage } from '../lib/api'
@@ -19,18 +27,7 @@ import { checkSignupAllowed, recordSignupMetadata } from '../lib/signupApi'
 import { fetchProfile, updateProfile, type ProfileUpdate, type UserProfile } from '../lib/profileApi'
 import { notifyPurchaseRequest } from '../lib/notifyApi'
 import { creditsPayMessage, subscriptionPayMessage, whatsAppPayUrl } from '../lib/whatsapp'
-
-const defaultSelection: OutfitSelection = {
-  meshIds: [],
-  fitId: null,
-  fabricId: null,
-  colorId: null,
-  collarId: null,
-  sleeveId: null,
-  detailIds: [],
-  patternId: null,
-  finishId: null,
-}
+import { DEFAULT_OUTFIT_SELECTION, normalizeSelection } from '../lib/normalizeSelection'
 
 let toastSeq = 0
 function nextToastId() {
@@ -56,7 +53,14 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [authReady, setAuthReady] = useState(false)
-  const [selection, setSelection] = useState<OutfitSelection>(defaultSelection)
+  const [selection, setSelectionState] = useState<OutfitSelection>(DEFAULT_OUTFIT_SELECTION)
+
+  const setSelection = useCallback((value: SetStateAction<OutfitSelection>) => {
+    setSelectionState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value
+      return normalizeSelection(next)
+    })
+  }, [])
   const [logoDescription, setLogoDescription] = useState('')
   const [userPrompt, setUserPrompt] = useState('')
   const [designId, setDesignId] = useState<string | null>(null)
@@ -122,7 +126,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
     }
     try {
       const list = await listDesigns(user.id)
-      setDesigns(list)
+      setDesigns(list ?? [])
     } catch (e) {
       pushToast('error', e instanceof Error ? e.message : 'Could not load designs.')
     }
@@ -223,7 +227,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         const row = await fetchDesign(id)
         setDesignId(row.id)
         setDesignTitle(row.title)
-        setSelection(row.selection ?? defaultSelection)
+        setSelection(normalizeSelection(row.selection))
         setLogoDescription(row.logo_description ?? '')
         setUserPrompt(row.user_prompt ?? '')
         setGenerated((prev) => {
@@ -248,7 +252,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
       const id = await createDesign(user.id, 'New design')
       setDesignId(id)
       setDesignTitle('New design')
-      setSelection(defaultSelection)
+      setSelection(DEFAULT_OUTFIT_SELECTION)
       setLogoDescription('')
       setUserPrompt('')
       setGenerated((prev) => {
@@ -473,7 +477,7 @@ export function OutGenProvider({ children }: { children: ReactNode }) {
         if (designId === id) {
           setDesignId(null)
           setDesignTitle('Untitled design')
-          setSelection(defaultSelection)
+          setSelection(DEFAULT_OUTFIT_SELECTION)
           setLogoDescription('')
           setUserPrompt('')
           setGenerated((prev) => {

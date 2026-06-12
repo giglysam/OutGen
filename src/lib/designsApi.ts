@@ -2,19 +2,8 @@ import type { GeneratedViews, OutfitSelection } from '../types'
 import { inferPrintProduct } from './designCategory'
 import type { PrintProductId } from './credits'
 import { compressImageUrl } from './compressImage'
+import { DEFAULT_OUTFIT_SELECTION, normalizeSelection } from './normalizeSelection'
 import { getSupabase } from './supabase'
-
-const emptySelection: OutfitSelection = {
-  meshIds: [],
-  fitId: null,
-  fabricId: null,
-  colorId: null,
-  collarId: null,
-  sleeveId: null,
-  detailIds: [],
-  patternId: null,
-  finishId: null,
-}
 
 export type DesignRow = {
   id: string
@@ -76,7 +65,7 @@ export async function listDesigns(userId: string): Promise<DesignSummary[]> {
       title: r.title,
       thumbnail_url: r.thumbnail_url,
       updated_at: r.updated_at,
-      print_product: inferPrintProduct(r.selection ?? emptySelection),
+      print_product: inferPrintProduct(normalizeSelection(r.selection)),
     }
   })
 }
@@ -93,10 +82,14 @@ export async function fetchDesign(id: string): Promise<DesignRow> {
   if (error) throw new Error(error.message)
 
   const row = data as Omit<DesignRow, 'print_product'>
+  const selection = normalizeSelection(row.selection)
   return {
     ...row,
-    selection: row.selection ?? emptySelection,
-    print_product: inferPrintProduct(row.selection ?? emptySelection),
+    selection,
+    logo_description: row.logo_description ?? '',
+    user_prompt: row.user_prompt ?? '',
+    generated_views: row.generated_views ?? {},
+    print_product: inferPrintProduct(selection),
   }
 }
 
@@ -106,7 +99,7 @@ export async function createDesign(userId: string, title = 'Untitled design'): P
     .insert({
       user_id: userId,
       title,
-      selection: emptySelection,
+      selection: DEFAULT_OUTFIT_SELECTION,
       logo_description: '',
       user_prompt: '',
       generated_views: {},
@@ -132,7 +125,7 @@ export async function saveDesign(params: {
     .from('designs')
     .update({
       title: params.title.trim() || 'Untitled design',
-      selection: params.selection,
+      selection: normalizeSelection(params.selection),
       logo_description: params.logoDescription,
       user_prompt: params.userPrompt,
       generated_views,
