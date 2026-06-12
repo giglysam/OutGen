@@ -1,6 +1,7 @@
 import type { GeneratedViews, OutfitSelection } from '../types'
 import { inferPrintProduct } from './designCategory'
 import type { PrintProductId } from './credits'
+import { compressImageUrl } from './compressImage'
 import { getSupabase } from './supabase'
 
 const emptySelection: OutfitSelection = {
@@ -26,7 +27,6 @@ export type DesignRow = {
   thumbnail_url: string | null
   created_at: string
   updated_at: string
-  /** Derived from selection — not a required DB column */
   print_product: PrintProductId
 }
 
@@ -38,36 +38,20 @@ export type DesignSummary = {
   updated_at: string
 }
 
-function withPrintProduct<T extends { selection?: OutfitSelection | null }>(
-  row: T,
-): T & { print_product: PrintProductId } {
-  const selection = row.selection ?? emptySelection
-  return { ...row, print_product: inferPrintProduct(selection) }
-}
-
-async function persistableViews(views: GeneratedViews): Promise<GeneratedViews> {
-  const out: GeneratedViews = {}
-  for (const [angle, url] of Object.entries(views)) {
-    if (!url) continue
-    if (url.startsWith('blob:')) {
-      try {
-        const res = await fetch(url)
-        const blob = await res.blob()
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader()
-          r.onload = () => resolve(String(r.result))
-          r.onerror = reject
-          r.readAsDataURL(blob)
-        })
-        out[angle as keyof GeneratedViews] = dataUrl
-      } catch {
-        /* skip broken blob */
-      }
-    } else {
-      out[angle as keyof GeneratedViews] = url
-    }
+/** Only persist a compressed front view — keeps saves small & cross-device reliable */
+async function cloudViews(views: GeneratedViews): Promise<{
+  generated_views: GeneratedViews
+  thumbnail_url: string | null
+}> {
+  const front = views.front
+  if (!front) {
+    return { generated_views: {}, thumbnail_url: null }
   }
-  return out
+  const compressed = await compressImageUrl(front)
+  return {
+    generated_views: { front: compressed },
+    thumbnail_url: compressed,
+  }
 }
 
 export async function listDesigns(userId: string): Promise<DesignSummary[]> {
@@ -98,9 +82,22 @@ export async function listDesigns(userId: string): Promise<DesignSummary[]> {
 }
 
 export async function fetchDesign(id: string): Promise<DesignRow> {
-  const { data, error } = await getSupabase().from('designs').select('*').eq('id', id).single()
+  const { data, error } = await getSupabase()
+    .from('designs')
+    .select(
+      'id, user_id, title, selection, logo_description, user_prompt, generated_views, thumbnail_url, created_at, updated_at',
+    )
+    .eq('id', id)
+    .single()
+
   if (error) throw new Error(error.message)
-  return withPrintProduct(data as DesignRow) as DesignRow
+
+  const row = data as Omit<DesignRow, 'print_product'>
+  return {
+    ...row,
+    selection: row.selection ?? emptySelection,
+    print_product: inferPrintProduct(row.selection ?? emptySelection),
+  }
 }
 
 export async function createDesign(userId: string, title = 'Untitled design'): Promise<string> {
@@ -109,7 +106,7 @@ export async function createDesign(userId: string, title = 'Untitled design'): P
     .insert({
       user_id: userId,
       title,
-      selection: {},
+      selection: emptySelection,
       logo_description: '',
       user_prompt: '',
       generated_views: {},
@@ -129,18 +126,17 @@ export async function saveDesign(params: {
   userPrompt: string
   generated: GeneratedViews
 }): Promise<void> {
-  const views = await persistableViews(params.generated)
-  const thumbnail = views.front ?? null
+  const { generated_views, thumbnail_url } = await cloudViews(params.generated)
 
   const { error } = await getSupabase()
     .from('designs')
     .update({
-      title: params.title,
+      title: params.title.trim() || 'Untitled design',
       selection: params.selection,
       logo_description: params.logoDescription,
       user_prompt: params.userPrompt,
-      generated_views: views,
-      thumbnail_url: thumbnail,
+      generated_views,
+      thumbnail_url,
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.id)

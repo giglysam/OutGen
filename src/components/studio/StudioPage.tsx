@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import {
   COLLAR_ITEMS,
   COLOR_ITEMS,
@@ -32,11 +32,6 @@ import {
 const MESH_MAX = 4
 const LIVE_DEBOUNCE_MS = 1200
 
-/** Preview never resizes — fixed height */
-const PREVIEW_HEIGHT = 'min(36dvh, 260px)'
-/** Dock height when open — scroll inside, does not affect preview */
-const DOCK_OPEN_HEIGHT = '42vh'
-const DOCK_COLLAPSED = 44
 
 type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 
@@ -387,10 +382,6 @@ export function StudioPage() {
   const gridItems = itemsForCategory(cat)
   const showClear = cat !== 'pieces' && cat !== 'details' && cat !== 'texte'
 
-  const dockHeightCss = dockOpen ? DOCK_OPEN_HEIGHT : `${DOCK_COLLAPSED}px`
-  const contentBottomPad = `calc(${dockOpen ? DOCK_OPEN_HEIGHT : `${DOCK_COLLAPSED}px`} + env(safe-area-inset-bottom, 0px))`
-
-
   const keysGrid = (
     <>
       {cat === 'texte' ? (
@@ -555,173 +546,150 @@ export function StudioPage() {
   )
 
   return (
-    <div className="relative mx-auto w-full max-w-lg">
-      <div className="px-3 pt-2" style={{ paddingBottom: contentBottomPad }}>
-        {user && savingDesign && (
-          <p className="mb-1 text-center text-xs text-zinc-500">Saving your outfit…</p>
-        )}
+    <div className="flex flex-col gap-3 px-4 pb-4 pt-2">
+      {user && (
+        <p className="text-center text-xs text-zinc-500">
+          {savingDesign ? 'Saving to cloud…' : 'Synced — open on any device when signed in'}
+        </p>
+      )}
 
-        <div
-          className="relative mx-auto w-full max-w-[240px]"
-          style={{ height: PREVIEW_HEIGHT }}
-        >
-          <div className="relative h-full overflow-hidden rounded-2xl border-2 border-zinc-700 bg-zinc-950">
-            {preview ? (
-              <img
-                src={preview}
-                alt="Your outfit"
-                className="h-full w-full object-cover object-top"
-                decoding="async"
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                <p className="text-sm font-semibold text-zinc-300">Your outfit appears here</p>
-                <p className="mt-2 text-xs text-zinc-500">Tap &quot;Show choices&quot; below to pick clothes.</p>
-              </div>
-            )}
-            {(liveBusy || generating) && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/75 text-xs text-white">
-                <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                {generating ? 'Making your outfit…' : 'Updating preview…'}
-              </div>
-            )}
-          </div>
+      <div className="relative mx-auto w-full max-w-sm">
+        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl border-2 border-zinc-600 bg-zinc-950 shadow-lg">
+          {preview ? (
+            <img
+              src={preview}
+              alt="Your outfit"
+              className="h-full w-full object-cover object-top"
+              decoding="async"
+            />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+              <p className="text-base font-bold text-white">Your outfit</p>
+              <p className="mt-2 text-sm text-zinc-400">Tap &quot;Pick clothes&quot; then &quot;Make my outfit&quot;</p>
+            </div>
+          )}
+          {(liveBusy || generating) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-sm text-white">
+              <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            </div>
+          )}
         </div>
+      </div>
 
+      <button
+        type="button"
+        disabled={generating || selection.meshIds.length === 0}
+        onClick={() => void generateOutfitMultiView()}
+        className="w-full rounded-2xl border-2 border-white bg-white py-4 text-base font-bold text-black disabled:opacity-40"
+      >
+        {generating ? 'Please wait…' : 'Make my outfit'}
+      </button>
+
+      {!dockOpen ? (
         <button
           type="button"
-          disabled={generating || selection.meshIds.length === 0}
-          onClick={() => void generateOutfitMultiView()}
-          className="mx-auto mt-3 w-full max-w-[240px] shrink-0 rounded-xl border-2 border-white bg-white py-3 text-sm font-bold text-black disabled:opacity-40"
+          onClick={() => {
+            setDockOpen(true)
+            setDockTab('choices')
+          }}
+          className="w-full rounded-2xl border-2 border-violet-500 bg-violet-600 py-4 text-base font-bold text-white"
         >
-          {generating ? 'Please wait…' : 'Make my outfit'}
+          Pick clothes
         </button>
-
-        {generated.front && (
-          <NavLink
-            to="/visualize"
-            className="mx-auto mt-2 block w-full max-w-[240px] shrink-0 rounded-xl border-2 border-zinc-600 py-2 text-center text-xs font-bold text-zinc-200"
-          >
-            See all sides
-          </NavLink>
-        )}
-      </div>
-
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t-2 border-zinc-700 bg-zinc-950"
-        style={{
-          height: dockHeightCss,
-          maxHeight: dockOpen ? '55vh' : undefined,
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      >
-        {dockOpen ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex shrink-0 gap-1 border-b border-zinc-800 p-1">
-              <button
-                type="button"
-                onClick={() => setDockTab('choices')}
-                className={`flex-1 rounded-lg py-2 text-xs font-bold ${
-                  dockTab === 'choices' ? 'bg-violet-600 text-white' : 'bg-zinc-900 text-zinc-400'
-                }`}
-              >
-                Outfit choices
-              </button>
-              <button
-                type="button"
-                onClick={() => setDockTab('chat')}
-                className={`flex-1 rounded-lg py-2 text-xs font-bold ${
-                  dockTab === 'chat' ? 'bg-violet-600 text-white' : 'bg-zinc-900 text-zinc-400'
-                }`}
-              >
-                Ask for help
-              </button>
-              <button
-                type="button"
-                onClick={() => setDockOpen(false)}
-                className="rounded-lg border border-zinc-700 px-3 text-xs font-bold text-zinc-300"
-              >
-                Hide
-              </button>
-            </div>
-            {dockTab === 'choices' ? (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <p className="shrink-0 px-2 py-0.5 text-center text-[10px] text-zinc-500">
-                  Scroll for more choices ↓
-                </p>
-                <div className="kbd-scroll shrink-0 flex gap-0.5 overflow-x-auto border-b border-zinc-800 px-1 py-0.5">
-                  {CATEGORIES.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setCat(c.id)}
-                      className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${
-                        cat === c.id ? 'bg-white text-black' : 'text-zinc-500'
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 py-0.5">
-                  {keysGrid}
-                </div>
-              </div>
-            ) : (
-              <div className="flex min-h-0 flex-1 flex-col p-1">
-                <div className="kbd-scroll min-h-0 flex-1 space-y-1 overflow-y-auto text-[10px]">
-                  {chatMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`rounded px-2 py-1 ${
-                        msg.role === 'user' ? 'ml-2 bg-zinc-800 text-zinc-200' : 'bg-zinc-900 text-zinc-400'
-                      }`}
-                    >
-                      {msg.text}
-                    </div>
-                  ))}
-                  {chatLoading && <p className="text-violet-400">Thinking…</p>}
-                </div>
-                <div className="flex shrink-0 gap-1 pt-1">
-                  <input
-                    className="min-h-8 flex-1 rounded-lg border border-zinc-700 bg-black px-2 text-xs text-white"
-                    placeholder="Type your question…"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void sendDockChat()
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={chatLoading}
-                    onClick={() => void sendDockChat()}
-                    className="rounded-lg border-2 border-white bg-white px-3 text-[10px] font-bold text-black"
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex h-full items-center gap-2 px-3">
+      ) : (
+        <div className="rounded-2xl border-2 border-zinc-700 bg-zinc-950">
+          <div className="flex gap-1 border-b border-zinc-800 p-2">
             <button
               type="button"
-              onClick={() => {
-                setDockOpen(true)
-                setDockTab('choices')
-              }}
-              className="flex-1 rounded-lg border-2 border-violet-500 bg-violet-600 py-2 text-xs font-bold text-white"
+              onClick={() => setDockTab('choices')}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-bold ${
+                dockTab === 'choices' ? 'bg-violet-600 text-white' : 'bg-zinc-900 text-zinc-400'
+              }`}
             >
-              Show outfit choices
+              Clothes
             </button>
-            <Link to="/designs" className="rounded-lg border border-zinc-600 px-3 py-2 text-xs font-bold text-zinc-300">
-              My outfits
-            </Link>
+            <button
+              type="button"
+              onClick={() => setDockTab('chat')}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-bold ${
+                dockTab === 'chat' ? 'bg-violet-600 text-white' : 'bg-zinc-900 text-zinc-400'
+              }`}
+            >
+              Help
+            </button>
+            <button
+              type="button"
+              onClick={() => setDockOpen(false)}
+              className="rounded-lg border border-zinc-600 px-4 text-sm font-bold text-white"
+            >
+              Done
+            </button>
           </div>
-        )}
-      </div>
+
+          {dockTab === 'choices' ? (
+            <div className="max-h-[min(50vh,360px)] overflow-y-auto">
+              <div className="kbd-scroll flex gap-1 overflow-x-auto border-b border-zinc-800 p-2">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCat(c.id)}
+                    className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold ${
+                      cat === c.id ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <div className="p-2">{keysGrid}</div>
+            </div>
+          ) : (
+            <div className="max-h-[min(40vh,280px)] overflow-y-auto p-2">
+              <div className="space-y-1 text-sm">
+                {chatMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-lg px-3 py-2 ${
+                      msg.role === 'user' ? 'ml-4 bg-zinc-800' : 'bg-zinc-900 text-zinc-400'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-2">
+                <input
+                  className="min-h-11 flex-1 rounded-xl border border-zinc-700 bg-black px-3 text-sm text-white"
+                  placeholder="Ask a question…"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void sendDockChat()
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={chatLoading}
+                  onClick={() => void sendDockChat()}
+                  className="rounded-xl border-2 border-white bg-white px-4 text-sm font-bold text-black"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {generated.front && (
+        <NavLink
+          to="/visualize"
+          className="block w-full rounded-2xl border-2 border-zinc-600 py-3 text-center text-sm font-bold text-zinc-200"
+        >
+          See all sides
+        </NavLink>
+      )}
     </div>
   )
 }

@@ -27,7 +27,8 @@ export default async function handler(req, res) {
     return
   }
 
-  const sql = readFileSync(join(__dirname, '../supabase/migrations/001_outgen.sql'), 'utf8')
+  const schemaPath = join(__dirname, '../supabase/COMPLETE_SCHEMA.sql')
+const sql = readFileSync(schemaPath, 'utf8')
   const client = new pg.Client({
     host: process.env.SUPABASE_DB_HOST || 'aws-0-us-west-1.pooler.supabase.com',
     port: Number(process.env.SUPABASE_DB_PORT || 5432),

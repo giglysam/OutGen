@@ -32,17 +32,34 @@ export type ProfileUpdate = Partial<
 >
 
 export async function fetchProfile(userId: string): Promise<UserProfile | null> {
-  const { data, error } = await getSupabase().from('profiles').select('*').eq('id', userId).maybeSingle()
+  const { data, error } = await getSupabase()
+    .from('profiles')
+    .select(
+      'id, email, display_name, city, country, address_line, maps_url, latitude, longitude, phone, credits_balance, subscription_active, onboarding_complete',
+    )
+    .eq('id', userId)
+    .maybeSingle()
   if (error) throw new Error(error.message)
-  return data as UserProfile | null
+  if (!data) return null
+  return {
+    ...(data as UserProfile),
+    onboarding_complete: (data as UserProfile).onboarding_complete ?? false,
+  }
 }
 
 export async function updateProfile(userId: string, patch: ProfileUpdate): Promise<UserProfile> {
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  for (const [k, v] of Object.entries(patch)) {
+    if (v !== undefined) payload[k] = v
+  }
+
   const { data, error } = await getSupabase()
     .from('profiles')
-    .update({ ...patch, updated_at: new Date().toISOString() })
+    .update(payload)
     .eq('id', userId)
-    .select('*')
+    .select(
+      'id, email, display_name, city, country, address_line, maps_url, latitude, longitude, phone, credits_balance, subscription_active, onboarding_complete',
+    )
     .single()
 
   if (error) throw new Error(error.message)

@@ -1,28 +1,24 @@
 # Supabase setup
 
-1. Open [Supabase SQL Editor](https://supabase.com/dashboard/project/gdmucpihztlberwaqtwk/sql/new).
-2. Paste and run migrations in order: `001`, `002`, `003`, `004_credit_pricing_tiers.sql`.
-3. In Vercel (or `.env` locally), set:
-   - `VITE_SUPABASE_URL=https://gdmucpihztlberwaqtwk.supabase.co`
-   - `VITE_SUPABASE_ANON_KEY` — your anon/public key from Project Settings → API.
+## Run this ONE file (required)
 
-Optional one-time bootstrap via API (after setting `SUPABASE_DB_PASSWORD` and `SETUP_SECRET` in Vercel):
+1. Open [Supabase SQL Editor](https://supabase.com/dashboard/project/gdmucpihztlberwaqtwk/sql/new)
+2. Paste **all** of `COMPLETE_SCHEMA.sql` and click **Run**
 
-```bash
-curl -X POST https://your-app.vercel.app/api/setup-db \
-  -H "x-setup-secret: YOUR_SETUP_SECRET"
-```
+This file includes every table, column, function, and policy from all migrations combined. Safe to re-run if something was missing.
 
-Never commit the service role key or database password.
+Do **not** run old 001–004 files separately unless you know you need a partial patch.
 
 ## Vercel environment variables
 
 | Variable | Purpose |
 |----------|---------|
-| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_URL` | `https://gdmucpihztlberwaqtwk.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Public anon key |
-| `RESEND_API_KEY` | Resend API key (`re_xxxxxxxxx`) |
-| `RESEND_FROM` | Sender address (e.g. `onboarding@resend.dev`) |
-| `OWNER_EMAIL` | Where print/payment alerts go |
-| `SUPABASE_SERVICE_ROLE_KEY` | Admin API only (server) |
-| `ADMIN_SECRET` | Password for `/admin` page |
+| `RESEND_API_KEY` | Email (server) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin/signup checks (server only) |
+| `ADMIN_SECRET` | `/admin` page password |
+
+## Cross-device
+
+Sign in with the **same email** on phone and computer. Outfits save to the `designs` table in Supabase and sync automatically.
