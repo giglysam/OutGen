@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useOutGen } from '../../hooks/useOutGen'
-
-const COUNTRIES = ['Lebanon', 'United States', 'United Kingdom', 'France', 'UAE', 'Canada', 'Germany', 'Other']
+import { LocationCaptureButton } from '../ui/LocationCaptureButton'
+import { isValidDeliveryLocation } from '../../lib/location'
 
 export function OnboardingModal() {
   const { user, profile, onboardingOpen, completeOnboarding } = useOutGen()
@@ -11,6 +11,8 @@ export function OnboardingModal() {
   const [country, setCountry] = useState(profile?.country ?? '')
   const [addressLine, setAddressLine] = useState(profile?.address_line ?? '')
   const [mapsUrl, setMapsUrl] = useState(profile?.maps_url ?? '')
+  const [latitude, setLatitude] = useState<number | null>(profile?.latitude ?? null)
+  const [longitude, setLongitude] = useState<number | null>(profile?.longitude ?? null)
   const [phone, setPhone] = useState(profile?.phone ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,29 +30,29 @@ export function OnboardingModal() {
       return
     }
     if (step === 2) {
-      if (!city.trim() || !country.trim()) {
-        setError('Please enter your city and country.')
+      if (!mapsUrl.trim() || !isValidDeliveryLocation(mapsUrl)) {
+        setError('Tap "Get my location live" so we know where to ship.')
         return
       }
       setStep(3)
       return
     }
-    if (step === 3) {
-      setBusy(true)
-      try {
-        await completeOnboarding({
-          display_name: name.trim(),
-          city: city.trim(),
-          country: country.trim(),
-          address_line: addressLine.trim() || null,
-          maps_url: mapsUrl.trim() || null,
-          phone: phone.trim() || null,
-        })
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Could not save')
-      } finally {
-        setBusy(false)
-      }
+    setBusy(true)
+    try {
+      await completeOnboarding({
+        display_name: name.trim(),
+        city: city.trim() || null,
+        country: country.trim() || null,
+        address_line: addressLine.trim() || null,
+        maps_url: mapsUrl.trim(),
+        latitude,
+        longitude,
+        phone: phone.trim() || null,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -60,13 +62,13 @@ export function OnboardingModal() {
         <p className="text-sm font-medium text-violet-400">Step {step} of 3</p>
         <h2 className="mt-2 text-2xl font-bold text-white">
           {step === 1 && 'What is your name?'}
-          {step === 2 && 'Where do you live?'}
-          {step === 3 && 'Delivery details'}
+          {step === 2 && 'Your home address'}
+          {step === 3 && 'Phone (optional)'}
         </h2>
         <p className="mt-2 text-sm text-zinc-400">
-          {step === 1 && 'We use this on your orders and account.'}
-          {step === 2 && 'Tap your country, then type your city.'}
-          {step === 3 && 'So we can ship prints to the right place.'}
+          {step === 1 && 'We print and ship to you.'}
+          {step === 2 && 'Tap the button — no typing needed.'}
+          {step === 3 && 'So we can call if delivery needs help.'}
         </p>
 
         {error && (
@@ -87,59 +89,32 @@ export function OnboardingModal() {
 
           {step === 2 && (
             <>
-              <div className="flex flex-wrap gap-2">
-                {COUNTRIES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCountry(c === 'Other' ? '' : c)}
-                    className={`rounded-full border-2 px-4 py-2 text-sm font-semibold ${
-                      country === c || (c === 'Other' && country && !COUNTRIES.includes(country))
-                        ? 'border-violet-500 bg-violet-500/20 text-white'
-                        : 'border-zinc-600 text-zinc-300'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <input
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="Country"
-                className="w-full rounded-2xl border-2 border-zinc-600 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-violet-500"
+              <LocationCaptureButton
+                onCaptured={(loc) => {
+                  setMapsUrl(loc.mapsUrl)
+                  setLatitude(loc.latitude)
+                  setLongitude(loc.longitude)
+                  setAddressLine(loc.addressLine)
+                  setCity(loc.city)
+                  setCountry(loc.country)
+                }}
               />
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="City"
-                className="w-full rounded-2xl border-2 border-zinc-600 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
+              {(addressLine || city) && (
+                <p className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+                  {[addressLine, city, country].filter(Boolean).join(', ')}
+                </p>
+              )}
             </>
           )}
 
           {step === 3 && (
-            <>
-              <input
-                value={addressLine}
-                onChange={(e) => setAddressLine(e.target.value)}
-                placeholder="Street address (optional)"
-                className="w-full rounded-2xl border-2 border-zinc-600 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
-              <input
-                value={mapsUrl}
-                onChange={(e) => setMapsUrl(e.target.value)}
-                placeholder="Google Maps link (paste from Maps app)"
-                className="w-full rounded-2xl border-2 border-zinc-600 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone number (optional)"
-                type="tel"
-                className="w-full rounded-2xl border-2 border-zinc-600 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-violet-500"
-              />
-            </>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone number"
+              type="tel"
+              className="w-full rounded-2xl border-2 border-zinc-600 bg-zinc-900 px-4 py-3 text-white outline-none focus:border-violet-500"
+            />
           )}
         </div>
 
@@ -147,7 +122,7 @@ export function OnboardingModal() {
           type="button"
           disabled={busy}
           onClick={() => void handleContinue()}
-          className="mt-8 w-full rounded-2xl border-2 border-violet-500 bg-violet-600 py-4 text-lg font-bold text-white shadow-lg disabled:opacity-50"
+          className="mt-8 w-full rounded-2xl border-2 border-violet-500 bg-violet-600 py-4 text-lg font-bold text-white disabled:opacity-50"
         >
           {busy ? 'Saving…' : step === 3 ? 'Save and start' : 'Continue'}
         </button>

@@ -8,6 +8,8 @@ export type UserProfile = {
   country: string | null
   address_line: string | null
   maps_url: string | null
+  latitude: number | null
+  longitude: number | null
   phone: string | null
   credits_balance: number
   subscription_active: boolean
@@ -17,7 +19,15 @@ export type UserProfile = {
 export type ProfileUpdate = Partial<
   Pick<
     UserProfile,
-    'display_name' | 'city' | 'country' | 'address_line' | 'maps_url' | 'phone' | 'onboarding_complete'
+    | 'display_name'
+    | 'city'
+    | 'country'
+    | 'address_line'
+    | 'maps_url'
+    | 'latitude'
+    | 'longitude'
+    | 'phone'
+    | 'onboarding_complete'
   >
 >
 

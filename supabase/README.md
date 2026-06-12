@@ -1,7 +1,7 @@
 # Supabase setup
 
 1. Open [Supabase SQL Editor](https://supabase.com/dashboard/project/gdmucpihztlberwaqtwk/sql/new).
-2. Paste and run `migrations/001_outgen.sql`, then `migrations/002_onboarding_security.sql`.
+2. Paste and run `migrations/001_outgen.sql`, then `002_onboarding_security.sql`, then `003_print_products_location.sql`.
 3. In Vercel (or `.env` locally), set:
    - `VITE_SUPABASE_URL=https://gdmucpihztlberwaqtwk.supabase.co`
    - `VITE_SUPABASE_ANON_KEY` — your anon/public key from Project Settings → API.

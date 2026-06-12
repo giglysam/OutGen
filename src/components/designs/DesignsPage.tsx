@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useOutGen } from '../../hooks/useOutGen'
+import { productLabel } from '../../lib/credits'
 
 export function DesignsPage() {
   const { user, designs, loadDesignById, startNewDesign, deleteDesignById, setAuthOpen } = useOutGen()
@@ -74,7 +75,10 @@ export function DesignsPage() {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-white">{d.title}</p>
-                  <p className="text-xs text-zinc-500">{new Date(d.updated_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-zinc-500">
+                    {d.print_product ? productLabel(d.print_product) : 'Garment'} ·{' '}
+                    {new Date(d.updated_at).toLocaleDateString()}
+                  </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Link
                       to="/"

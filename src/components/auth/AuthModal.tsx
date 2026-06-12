@@ -101,7 +101,7 @@ export function AuthModal() {
             disabled={busy}
             className="w-full rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white transition hover:bg-violet-500 disabled:opacity-50"
           >
-            {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}
+            {busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create my account'}
           </button>
         </form>
 

@@ -1,4 +1,6 @@
 import type { GeneratedViews, OutfitSelection } from '../types'
+import { inferPrintProduct } from './designCategory'
+import type { PrintProductId } from './credits'
 import { getSupabase } from './supabase'
 
 export type DesignRow = {
@@ -10,6 +12,7 @@ export type DesignRow = {
   user_prompt: string
   generated_views: GeneratedViews
   thumbnail_url: string | null
+  print_product: PrintProductId | null
   created_at: string
   updated_at: string
 }
@@ -18,6 +21,7 @@ export type DesignSummary = {
   id: string
   title: string
   thumbnail_url: string | null
+  print_product: PrintProductId | null
   updated_at: string
 }
 
@@ -49,7 +53,7 @@ async function persistableViews(views: GeneratedViews): Promise<GeneratedViews> 
 export async function listDesigns(userId: string): Promise<DesignSummary[]> {
   const { data, error } = await getSupabase()
     .from('designs')
-    .select('id, title, thumbnail_url, updated_at')
+    .select('id, title, thumbnail_url, print_product, updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
 
@@ -92,6 +96,8 @@ export async function saveDesign(params: {
   const views = await persistableViews(params.generated)
   const thumbnail = views.front ?? null
 
+  const printProduct = inferPrintProduct(params.selection)
+
   const { error } = await getSupabase()
     .from('designs')
     .update({
@@ -101,6 +107,7 @@ export async function saveDesign(params: {
       user_prompt: params.userPrompt,
       generated_views: views,
       thumbnail_url: thumbnail,
+      print_product: printProduct,
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.id)

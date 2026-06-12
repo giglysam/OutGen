@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { useResizeHeight } from './useResizeHeight'
 import {
   COLLAR_ITEMS,
   COLOR_ITEMS,
@@ -33,10 +32,11 @@ import {
 const MESH_MAX = 4
 const LIVE_DEBOUNCE_MS = 1200
 
-const DOCK_COLLAPSED = 40
-const DOCK_MIN = 80
-const DOCK_MAX = 260
-const DOCK_DEFAULT = 110
+/** Preview never resizes — fixed height */
+const PREVIEW_HEIGHT = 'min(36dvh, 260px)'
+/** Dock height when open — scroll inside, does not affect preview */
+const DOCK_OPEN_HEIGHT = '42vh'
+const DOCK_COLLAPSED = 44
 
 type MeshFilter = 'all' | 'tops' | 'bottoms' | 'outer' | 'accessories'
 
@@ -159,8 +159,6 @@ export function StudioPage() {
   const [liveBusy, setLiveBusy] = useState(false)
   const [dockOpen, setDockOpen] = useState(false)
   const [dockTab, setDockTab] = useState<'choices' | 'chat'>('choices')
-  const { height: dockHeight, setHeight: setDockHeight, onPointerDown, onPointerMove, onPointerUp } =
-    useResizeHeight(DOCK_DEFAULT, DOCK_MIN, DOCK_MAX)
   const [chatMode] = useState<'help' | 'design'>('help')
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([])
@@ -389,8 +387,8 @@ export function StudioPage() {
   const gridItems = itemsForCategory(cat)
   const showClear = cat !== 'pieces' && cat !== 'details' && cat !== 'texte'
 
-  const dockPx = dockOpen ? dockHeight : DOCK_COLLAPSED
-  const contentBottomPad = `calc(${dockPx}px + env(safe-area-inset-bottom, 0px))`
+  const dockHeightCss = dockOpen ? DOCK_OPEN_HEIGHT : `${DOCK_COLLAPSED}px`
+  const contentBottomPad = `calc(${dockOpen ? DOCK_OPEN_HEIGHT : `${DOCK_COLLAPSED}px`} + env(safe-area-inset-bottom, 0px))`
 
 
   const keysGrid = (
@@ -557,13 +555,16 @@ export function StudioPage() {
   )
 
   return (
-    <div className="relative mx-auto flex h-[calc(100dvh-4rem)] w-full max-w-lg flex-col">
-      <div className="flex min-h-0 flex-1 flex-col px-3 pt-2" style={{ paddingBottom: contentBottomPad }}>
+    <div className="relative mx-auto w-full max-w-lg">
+      <div className="px-3 pt-2" style={{ paddingBottom: contentBottomPad }}>
         {user && savingDesign && (
           <p className="mb-1 text-center text-xs text-zinc-500">Saving your outfit…</p>
         )}
 
-        <div className="relative mx-auto min-h-0 w-full max-w-[240px] flex-1">
+        <div
+          className="relative mx-auto w-full max-w-[240px]"
+          style={{ height: PREVIEW_HEIGHT }}
+        >
           <div className="relative h-full overflow-hidden rounded-2xl border-2 border-zinc-700 bg-zinc-950">
             {preview ? (
               <img
@@ -607,24 +608,15 @@ export function StudioPage() {
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-zinc-700 bg-zinc-950"
+        className="fixed bottom-0 left-0 right-0 z-40 flex flex-col border-t-2 border-zinc-700 bg-zinc-950"
         style={{
-          height: dockPx,
+          height: dockHeightCss,
+          maxHeight: dockOpen ? '55vh' : undefined,
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {dockOpen ? (
-          <div className="flex h-full flex-col">
-            <div
-              role="separator"
-              aria-label="Drag to resize panel"
-              className="flex h-5 shrink-0 cursor-row-resize items-center justify-center border-b border-zinc-800 bg-zinc-900 touch-none"
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-            >
-              <span className="h-1 w-10 rounded-full bg-zinc-600" />
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 gap-1 border-b border-zinc-800 p-1">
               <button
                 type="button"
@@ -653,7 +645,10 @@ export function StudioPage() {
               </button>
             </div>
             {dockTab === 'choices' ? (
-              <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <p className="shrink-0 px-2 py-0.5 text-center text-[10px] text-zinc-500">
+                  Scroll for more choices ↓
+                </p>
                 <div className="kbd-scroll shrink-0 flex gap-0.5 overflow-x-auto border-b border-zinc-800 px-1 py-0.5">
                   {CATEGORIES.map((c) => (
                     <button
@@ -668,7 +663,9 @@ export function StudioPage() {
                     </button>
                   ))}
                 </div>
-                <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto px-1 py-0.5">{keysGrid}</div>
+                <div className="kbd-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-1 py-0.5">
+                  {keysGrid}
+                </div>
               </div>
             ) : (
               <div className="flex min-h-0 flex-1 flex-col p-1">
@@ -714,7 +711,6 @@ export function StudioPage() {
               onClick={() => {
                 setDockOpen(true)
                 setDockTab('choices')
-                if (dockHeight < DOCK_MIN) setDockHeight(DOCK_DEFAULT)
               }}
               className="flex-1 rounded-lg border-2 border-violet-500 bg-violet-600 py-2 text-xs font-bold text-white"
             >

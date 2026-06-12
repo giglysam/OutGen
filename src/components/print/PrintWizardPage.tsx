@@ -1,22 +1,28 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useOutGen } from '../../hooks/useOutGen'
+import { LocationCaptureButton } from '../ui/LocationCaptureButton'
 import {
+  CREDIT_USD,
   EXTRA_CREDIT_PRICE_USD,
   PRINT_ETA_DAYS,
-  PRINT_PRODUCTS,
   PRINT_QUALITIES,
+  productLabel,
   type PrintProductId,
   type PrintQualityId,
   totalPrintCredits,
+  usdEstimate,
 } from '../../lib/credits'
+import { fetchDesign } from '../../lib/designsApi'
+import { inferPrintProduct } from '../../lib/designCategory'
+import { isValidDeliveryLocation } from '../../lib/location'
 import { placePrintOrder } from '../../lib/profileApi'
 import { notifyPrintOrder } from '../../lib/notifyApi'
 
-type Step = 1 | 2 | 3 | 4
+type Step = 1 | 2 | 3
 
 export function PrintWizardPage() {
-  const { user, profile, designs, setAuthOpen, refreshProfile } = useOutGen()
+  const { user, profile, designs, setAuthOpen, refreshProfile, updateProfileFields } = useOutGen()
   const userName = user?.name ?? ''
   const userEmail = user?.email ?? ''
   const [searchParams] = useSearchParams()
@@ -27,7 +33,8 @@ export function PrintWizardPage() {
   const [product, setProduct] = useState<PrintProductId>('tee')
   const [quality, setQuality] = useState<PrintQualityId>('light_cotton')
   const [quantity, setQuantity] = useState(1)
-  const [mapsUrl, setMapsUrl] = useState('')
+  const [mapsUrl, setMapsUrl] = useState(profile?.maps_url ?? '')
+  const [addressPreview, setAddressPreview] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,18 +43,32 @@ export function PrintWizardPage() {
     () => totalPrintCredits(product, quality, quantity),
     [product, quality, quantity],
   )
+  const usdTotal = useMemo(() => usdEstimate(product, quality, quantity), [product, quality, quantity])
   const balance = profile?.credits_balance ?? 0
   const selectedDesign = designs.find((d) => d.id === designId)
+
+  useEffect(() => {
+    if (!designId) return
+    void (async () => {
+      try {
+        const row = await fetchDesign(designId)
+        const p = row.print_product as PrintProductId | null
+        setProduct(p ?? inferPrintProduct(row.selection))
+      } catch {
+        if (selectedDesign?.print_product) setProduct(selectedDesign.print_product)
+      }
+    })()
+  }, [designId, selectedDesign?.print_product])
 
   if (!user) {
     return (
       <div className="mx-auto max-w-lg px-5 py-16 text-center">
-        <h1 className="font-display text-3xl font-bold text-white">Print your design</h1>
-        <p className="mt-3 text-zinc-400">Sign in to order a physical garment shipped to you.</p>
+        <h1 className="text-2xl font-bold text-white">Order a print</h1>
+        <p className="mt-3 text-zinc-400">Sign in to print your outfit at home.</p>
         <button
           type="button"
           onClick={() => setAuthOpen(true)}
-          className="mt-8 w-full max-w-xs rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white"
+          className="mt-8 w-full max-w-xs rounded-2xl border-2 border-violet-500 bg-violet-600 py-4 font-bold text-white"
         >
           Sign in
         </button>
@@ -58,13 +79,10 @@ export function PrintWizardPage() {
   if (done) {
     return (
       <div className="mx-auto max-w-lg px-5 py-16 text-center">
-        <div className="text-5xl">✓</div>
-        <h1 className="mt-4 font-display text-3xl font-bold text-white">Order placed</h1>
-        <p className="mt-3 text-zinc-400">
-          Production takes about {PRINT_ETA_DAYS} days, then we ship to your location.
-        </p>
-        <Link to="/designs" className="mt-8 inline-block rounded-2xl bg-white px-8 py-4 font-semibold text-zinc-950">
-          Back to designs
+        <h1 className="text-2xl font-bold text-white">Order sent</h1>
+        <p className="mt-3 text-zinc-400">About {PRINT_ETA_DAYS} days until it ships to you.</p>
+        <Link to="/designs" className="mt-8 inline-block rounded-2xl border-2 border-white bg-white px-8 py-4 font-bold text-zinc-950">
+          Back to my outfits
         </Link>
       </div>
     )
@@ -74,31 +92,30 @@ export function PrintWizardPage() {
     setError(null)
     if (step === 1) {
       if (!designId) {
-        setError('Pick a design to continue.')
+        setError('Tap an outfit to continue.')
         return
       }
       setStep(2)
       return
     }
     if (step === 2) {
-      setStep(3)
-      if (!mapsUrl && profile?.maps_url) setMapsUrl(profile.maps_url)
-      return
-    }
-    if (step === 3) {
-      if (!mapsUrl.trim().includes('google') && !mapsUrl.trim().includes('goo.gl')) {
-        setError('Paste a valid Google Maps link.')
+      if (!mapsUrl.trim() || !isValidDeliveryLocation(mapsUrl)) {
+        setError('Tap "Get my location live" to set your home address.')
         return
       }
-      setStep(4)
+      setStep(3)
       return
     }
     if (balance < creditsNeeded) {
-      setError(`You need ${creditsNeeded} credits (${balance} available). Buy more in Account.`)
+      setError(`You need ${creditsNeeded} credits ($${usdTotal}). You have ${balance}. Buy more in Account.`)
       return
     }
     setBusy(true)
     try {
+      await updateProfileFields({
+        maps_url: mapsUrl.trim(),
+        address_line: addressPreview || profile?.address_line,
+      })
       const orderId = await placePrintOrder({
         designId: designId!,
         productType: product,
@@ -109,9 +126,9 @@ export function PrintWizardPage() {
       try {
         await notifyPrintOrder({
           orderId,
-          designTitle: selectedDesign?.title ?? 'Design',
+          designTitle: selectedDesign?.title ?? 'Outfit',
           thumbnailUrl: selectedDesign?.thumbnail_url ?? null,
-          productLabel: PRINT_PRODUCTS.find((p) => p.id === product)?.label ?? product,
+          productLabel: productLabel(product),
           qualityLabel: PRINT_QUALITIES.find((q) => q.id === quality)?.label ?? quality,
           quantity,
           creditsTotal: creditsNeeded,
@@ -120,10 +137,10 @@ export function PrintWizardPage() {
           userEmail,
           city: profile?.city,
           country: profile?.country,
-          addressLine: profile?.address_line,
+          addressLine: addressPreview || profile?.address_line,
         })
       } catch {
-        /* order saved even if email fails */
+        /* ok */
       }
       await refreshProfile()
       setDone(true)
@@ -135,52 +152,54 @@ export function PrintWizardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-5 pb-32 pt-8">
-      <p className="text-xs font-medium uppercase tracking-wide text-violet-400">Step {step} of 4</p>
-      <h1 className="mt-2 font-display text-3xl font-bold text-white">
-        {step === 1 && 'Choose design'}
-        {step === 2 && 'Product & quality'}
-        {step === 3 && 'Delivery location'}
-        {step === 4 && 'Confirm order'}
+    <div className="mx-auto max-w-lg px-4 pb-32 pt-6">
+      <p className="text-sm text-violet-400">Step {step} of 3</p>
+      <h1 className="mt-1 text-2xl font-bold text-white">
+        {step === 1 && 'Pick your outfit'}
+        {step === 2 && 'Where to deliver'}
+        {step === 3 && 'Check and send order'}
       </h1>
-      <p className="mt-2 text-zinc-400">
-        {balance} credit{balance === 1 ? '' : 's'} available · extra credits ${EXTRA_CREDIT_PRICE_USD} each
-      </p>
 
       {error && (
-        <p className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {error}
         </p>
       )}
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-6 space-y-4">
         {step === 1 && (
           <>
             {designs.length === 0 ? (
-              <p className="rounded-3xl border border-dashed border-zinc-700 p-8 text-center text-zinc-400">
-                No saved designs yet.{' '}
+              <p className="rounded-2xl border border-dashed border-zinc-700 p-8 text-center text-zinc-400">
+                No outfits yet.{' '}
                 <Link to="/" className="text-violet-400 underline">
-                  Create one in Studio
+                  Make one first
                 </Link>
               </p>
             ) : (
               designs.map((d) => {
                 const on = designId === d.id
+                const typeLabel = d.print_product ? productLabel(d.print_product) : 'Garment'
                 return (
                   <button
                     key={d.id}
                     type="button"
                     onClick={() => setDesignId(d.id)}
-                    className={`flex w-full items-center gap-4 rounded-3xl border p-4 text-left transition ${
-                      on ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-800 bg-zinc-900/50'
+                    className={`flex w-full items-center gap-3 rounded-2xl border-2 p-3 text-left ${
+                      on ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-800'
                     }`}
                   >
                     {d.thumbnail_url ? (
-                      <img src={d.thumbnail_url} alt="" className="h-16 w-16 rounded-2xl object-cover" />
+                      <img src={d.thumbnail_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
                     ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 text-[10px] text-zinc-500">No image</div>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-800 text-[10px] text-zinc-500">
+                        No image
+                      </div>
                     )}
-                    <span className="font-semibold text-white">{d.title}</span>
+                    <div>
+                      <p className="font-semibold text-white">{d.title}</p>
+                      <p className="text-xs text-zinc-500">{typeLabel} — type set from your design</p>
+                    </div>
                   </button>
                 )
               })
@@ -190,135 +209,100 @@ export function PrintWizardPage() {
 
         {step === 2 && (
           <>
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-500">Product</p>
-              {PRINT_PRODUCTS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setProduct(p.id)}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left ${
-                    product === p.id ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-800'
-                  }`}
-                >
-                  <div>
-                    <p className="font-semibold text-white">{p.label}</p>
-                    <p className="text-sm text-zinc-500">{p.description}</p>
-                  </div>
-                  <span className="text-sm font-bold text-violet-300">{p.baseCredits} cr</span>
-                </button>
-              ))}
+            <p className="text-sm text-zinc-400">We ship to your home. One tap is enough.</p>
+            <LocationCaptureButton
+              onCaptured={(loc) => {
+                setMapsUrl(loc.mapsUrl)
+                setAddressPreview([loc.addressLine, loc.city, loc.country].filter(Boolean).join(', '))
+              }}
+            />
+            {addressPreview && (
+              <p className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-300">
+                Home: {addressPreview}
+              </p>
+            )}
+          </>
+        )}
+
+        {step === 3 && selectedDesign && (
+          <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
+            <div className="flex gap-3">
+              {selectedDesign.thumbnail_url && (
+                <img src={selectedDesign.thumbnail_url} alt="" className="h-16 w-16 rounded-xl object-cover" />
+              )}
+              <div>
+                <p className="font-semibold text-white">{selectedDesign.title}</p>
+                <p className="text-sm text-zinc-400">
+                  {productLabel(product)} × {quantity}
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-3 pt-4">
-              <p className="text-sm text-zinc-500">Fabric quality</p>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-white">Fabric</p>
               {PRINT_QUALITIES.map((q) => (
                 <button
                   key={q.id}
                   type="button"
                   onClick={() => setQuality(q.id)}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left ${
-                    quality === q.id ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-800'
+                  className={`flex w-full items-center justify-between rounded-xl border-2 px-3 py-3 text-left ${
+                    quality === q.id ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-700'
                   }`}
                 >
-                  <div>
-                    <p className="font-semibold text-white">{q.label}</p>
-                    <p className="text-sm text-zinc-500">{q.description}</p>
-                  </div>
-                  {q.extraCredits > 0 && (
-                    <span className="text-sm text-zinc-400">+{q.extraCredits} cr</span>
-                  )}
+                  <span className="text-sm text-white">{q.label}</span>
+                  <span className="text-xs text-zinc-400">
+                    {q.extraUsd > 0 ? `+$${q.extraUsd}` : 'Included'}
+                  </span>
                 </button>
               ))}
             </div>
 
-            <div className="pt-4">
-              <p className="text-sm text-zinc-500">Copies</p>
-              <div className="mt-3 flex items-center justify-center gap-6">
+            <div>
+              <p className="text-sm font-semibold text-white">How many copies?</p>
+              <div className="mt-2 flex items-center justify-center gap-4">
                 <button
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-700 text-2xl"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-zinc-600 text-xl font-bold"
                 >
                   −
                 </button>
-                <span className="font-display text-4xl font-bold text-white">{quantity}</span>
+                <span className="text-3xl font-bold text-white">{quantity}</span>
                 <button
                   type="button"
-                  onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-700 text-2xl"
+                  onClick={() => setQuantity((q) => Math.min(5, q + 1))}
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-zinc-600 text-xl font-bold"
                 >
                   +
                 </button>
               </div>
             </div>
-          </>
-        )}
 
-        {step === 3 && (
-          <>
-            <p className="text-sm text-zinc-400">
-              Paste the Google Maps link for your exact delivery spot. You can save a default in{' '}
-              <Link to="/account" className="text-violet-400 underline">
-                Account
-              </Link>
-              .
-            </p>
-            <input
-              value={mapsUrl}
-              onChange={(e) => setMapsUrl(e.target.value)}
-              placeholder="https://maps.google.com/…"
-              className="w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-4 text-base text-white outline-none focus:border-violet-500"
-            />
-          </>
-        )}
-
-        {step === 4 && selectedDesign && (
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-4">
-            <div className="flex gap-4">
-              {selectedDesign.thumbnail_url && (
-                <img
-                  src={selectedDesign.thumbnail_url}
-                  alt=""
-                  className="h-20 w-20 rounded-2xl object-cover"
-                />
-              )}
-              <div>
-                <p className="font-semibold text-white">{selectedDesign.title}</p>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {PRINT_PRODUCTS.find((p) => p.id === product)?.label} × {quantity} ·{' '}
-                  {PRINT_QUALITIES.find((q) => q.id === quality)?.label}
-                </p>
-              </div>
+            <div className="rounded-xl bg-violet-500/10 px-4 py-3">
+              <p className="text-sm text-zinc-300">
+                Ship to: {addressPreview || 'Your saved home address'}
+              </p>
+              <p className="mt-2 text-lg font-bold text-white">
+                {creditsNeeded} credits · about ${usdTotal}
+              </p>
+              <p className="text-xs text-zinc-500">
+                {balance} credits available · extra credits ${EXTRA_CREDIT_PRICE_USD} each (${CREDIT_USD} value)
+              </p>
             </div>
-            <div className="border-t border-zinc-800 pt-4 text-sm text-zinc-400">
-              <p>ETA: ~{PRINT_ETA_DAYS} days production + shipping</p>
-              <p className="mt-2 truncate">Ship to: {mapsUrl}</p>
-            </div>
-            <div className="flex items-center justify-between rounded-2xl bg-violet-500/10 px-4 py-3">
-              <span className="font-medium text-white">Total</span>
-              <span className="font-display text-2xl font-bold text-violet-200">
-                {creditsNeeded} credit{creditsNeeded === 1 ? '' : 's'}
-              </span>
-            </div>
-            {balance < creditsNeeded && (
-              <Link to="/account" className="block text-center text-sm text-amber-300 underline">
-                Need more credits? Go to Account
-              </Link>
-            )}
           </div>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-zinc-800 bg-[#060607]/95 p-4 backdrop-blur-xl"
+      <div
+        className="fixed bottom-0 left-0 right-0 border-t border-zinc-800 bg-[#060607] p-4"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
-        <div className="mx-auto flex max-w-lg gap-3">
+        <div className="mx-auto flex max-w-lg gap-2">
           {step > 1 && (
             <button
               type="button"
               onClick={() => setStep((s) => (s - 1) as Step)}
-              className="rounded-2xl border border-zinc-700 px-6 py-4 font-semibold text-white"
+              className="rounded-xl border-2 border-zinc-600 px-5 py-3 font-bold text-white"
             >
               Back
             </button>
@@ -327,9 +311,9 @@ export function PrintWizardPage() {
             type="button"
             disabled={busy || (step === 1 && designs.length === 0)}
             onClick={() => void handleContinue()}
-            className="flex-1 rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white disabled:opacity-50"
+            className="flex-1 rounded-xl border-2 border-violet-500 bg-violet-600 py-3 font-bold text-white disabled:opacity-50"
           >
-            {busy ? 'Placing order…' : step === 4 ? 'Place order' : 'Continue'}
+            {busy ? 'Sending…' : step === 3 ? 'Send my order' : 'Continue'}
           </button>
         </div>
       </div>
